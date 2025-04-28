@@ -496,19 +496,27 @@ and `:?`, `:*`, `:+` & `:repeat` for repetition:
 
 ```clojure
 (m/validate [:? int?] []) ; => true
+
 (m/validate [:? int?] [1]) ; => true
+
 (m/validate [:? int?] [1 2]) ; => false
 
 (m/validate [:* int?] []) ; => true
+
 (m/validate [:* int?] [1 2 3]) ; => true
 
 (m/validate [:+ int?] []) ; => false
+
 (m/validate [:+ int?] [1]) ; => true
+
 (m/validate [:+ int?] [1 2 3]) ; => true
 
 (m/validate [:repeat {:min 2, :max 4} int?] [1]) ; => false
+
 (m/validate [:repeat {:min 2, :max 4} int?] [1 2]) ; => true
-(m/validate [:repeat {:min 2, :max 4} int?] [1 2 3 4]) ; => true (:max is inclusive, as elsewhere in Malli)
+
+(m/validate [:repeat {:min 2, :max 4} int?] [1 2 3 4]) ; => true ; (:max is inclusive, as elsewhere in Malli)
+
 (m/validate [:repeat {:min 2, :max 4} int?] [1 2 3 4 5]) ; => false
 ```
 
@@ -772,14 +780,15 @@ Under `:errors`, you get a list of errors with the following keys:
                first))
 
 error
-;{:path [:x 0 0]
-; :in [:x 0]
-; :schema :string
-; :value 1}
+; => {:path [:x 0 0]
+;     :in [:x 0]
+;     :schema :string
+;     :value 1}
 
 (get-in value (:in error))
 ; => 1
 
+(require '[malli.util :as mu])
 (mu/get-in Schema (:path error))
 ; => :string
 ```
@@ -801,9 +810,9 @@ Explain results can be humanized with `malli.error/humanize`:
                  :zip 33100
                  :lonlat [61.4858322, nil]}})
     (me/humanize))
-;{:tags #{["should be a keyword"]}
-; :address {:city ["missing required key"]
-;           :lonlat [nil ["should be a double"]]}}
+; => {:tags #{["should be a keyword"]}
+;     :address {:city ["missing required key"]
+;               :lonlat [nil ["should be a double"]]}}
 ```
 
 Or if you already have a malli validation exception (e.g. in a catch form):
@@ -815,6 +824,7 @@ Or if you already have a malli validation exception (e.g. in a catch form):
   (m/assert Address {:not "an address"})
   (catch Exception e
     (-> e ex-data :data :explain me/humanize)))
+; => {:street ["missing required key"], :country ["missing required key"]}
 ```
 
 ## Custom error messages
@@ -875,9 +885,9 @@ Here are some basic examples of `:error/message` and `:error/fn`:
     (me/humanize
       {:errors (-> me/default-errors
                    (assoc ::m/missing-key {:error/fn (fn [{:keys [in]} _] (str "missing key " (last in)))}))}))
-;{:id ["missing key :id"]
-; :size ["should be: S|M|L"]
-; :age ["10, should be > 18"]}
+; => {:id ["missing key :id"]
+;     :size ["should be: S|M|L"]
+;     :age ["10, should be > 18"]}
 ```
 
 Messages can be localized:
@@ -898,9 +908,9 @@ Messages can be localized:
                    (assoc-in ['int? :error-message :fi] "pitäisi olla numero")
                    (assoc ::m/missing-key {:error/fn {:en (fn [{:keys [in]} _] (str "missing key " (last in)))
                                                       :fi (fn [{:keys [in]} _] (str "puuttuu avain " (last in)))}}))}))
-;{:id ["puuttuu avain :id"]
-; :size ["pitäisi olla: S|M|L"]
-; :age ["10, pitäisi olla > 18"]}
+; => {:id ["puuttuu avain :id"]
+;     :size ["pitäisi olla: S|M|L"]
+;     :age ["10, pitäisi olla > 18"]}
 ```
 
 Top-level humanized map-errors are under `:malli/error`:
@@ -915,7 +925,7 @@ Top-level humanized map-errors are under `:malli/error`:
     (m/explain {:password "secret"
                 :password2 "faarao"})
     (me/humanize))
-; {:malli/error ["passwords don't match"]}
+; => {:malli/error ["passwords don't match"]}
 ```
 
 Errors can be targeted using `:error/path` property:
@@ -931,7 +941,7 @@ Errors can be targeted using `:error/path` property:
     (m/explain {:password "secret"
                 :password2 "faarao"})
     (me/humanize))
-; {:password2 ["passwords don't match"]}
+; => {:password2 ["passwords don't match"]}
 ```
 
 By default, only direct erroneous schema properties are used:
@@ -966,9 +976,9 @@ For closed schemas, key spelling can be checked with:
        :address {:streetz "Hämeenkatu 14"}})
     (me/with-spell-checking)
     (me/humanize))
-;{:address {:street ["missing required key"]
-;           :streetz ["should be spelled :street"]}
-; :name ["disallowed key"]}
+; => {:address {:street ["missing required key"]
+;               :streetz ["should be spelled :street"]}
+;     :name ["disallowed key"]}
 ```
 
 ## Values in error
@@ -984,8 +994,8 @@ Just to get parts of the value that are in error:
                 :zip 33100
                 :lonlat [61.4858322, "23.7832851,17"]}})
     (me/error-value))
-;{:tags #{"coffee" "ground"}
-; :address {:lonlat [nil "23.7832851,17"]}}
+; => {:tags #{"coffee" "ground"}
+;     :address {:lonlat [nil "23.7832851,17"]}}
 ```
 
 Masking irrelevant parts:
@@ -999,11 +1009,11 @@ Masking irrelevant parts:
                 :zip 33100
                 :lonlat [61.4858322, "23.7832851,17"]}})
     (me/error-value {::me/mask-valid-values '...}))
-;{:id ...
-; :tags #{"coffee" "ground" ...}
-; :address {:street ...
-;           :zip ...
-;           :lonlat [... "23.7832851,17"]}}
+; => {:id ...
+;     :tags #{"coffee" "ground" ...}
+;     :address {:street ...
+;               :zip ...
+;               :lonlat [... "23.7832851,17"]}}
 ```
 
 ## Pretty errors
@@ -1050,11 +1060,12 @@ For pretty development-time error printing, try `malli.dev.pretty/explain`
 
 ```clojure
 (require '[malli.transform :as mt])
+; => nil
 ```
 
 Two-way schema-driven value transformations with `m/decode` and `m/encode` using a `Transformer` instance.
 
-Default Transformers include: 
+Default Transformers include:
 
 | name                              | description                                         |
 |:----------------------------------|-----------------------------------------------------|
@@ -1071,10 +1082,10 @@ Simple usage:
 
 ```clojure
 (m/decode int? "42" mt/string-transformer)
-; 42
+; => 42
 
 (m/encode int? 42 mt/string-transformer)
-; "42"
+; => "42"
 ```
 
 For performance, precompute the transformations with `m/decoder` and `m/encoder`:
@@ -1083,12 +1094,12 @@ For performance, precompute the transformations with `m/decoder` and `m/encoder`
 (def decode (m/decoder int? mt/string-transformer))
 
 (decode "42")
-; 42
+; => 42
 
 (def encode (m/encoder int? mt/string-transformer))
 
 (encode 42)
-; "42"
+; => "42"
 ```
 
 ### Coercion
@@ -1097,10 +1108,10 @@ For both decoding + validating the results (throwing exception on error), there 
 
 ```clojure
 (m/coerce :int "42" mt/string-transformer)
-; 42
+; => 42
 
 ((m/coercer :int mt/string-transformer) "42")
-; 42
+; => 42
 
 (m/coerce :int "invalid" mt/string-transformer)
 ; =throws=> :malli.core/invalid-input {:value "invalid", :schema :int, :explain {:schema :int, :value "invalid", :errors ({:path [], :in [], :schema :int, :value "invalid"})}}
@@ -1110,7 +1121,7 @@ Coercion can be applied without transformer, doing just validation:
 
 ```clojure
 (m/coerce :int 42)
-; 42
+; => 42
 
 (m/coerce :int "42")
 ; =throws=> :malli.core/invalid-input {:value "42", :schema :int, :explain {:schema :int, :value "42", :errors ({:path [], :in [], :schema :int, :value "42"})}}
@@ -1137,12 +1148,12 @@ Transformations are recursive:
              :zip 33100
              :lonlat [61.4858322 23.7854658]}}
   mt/json-transformer)
-;{:id "Lillan",
-; :tags #{:coffee :artesan :garden},
-; :address {:street "Ahlmanintie 29"
-;           :city "Tampere"
-;           :zip 33100
-;           :lonlat [61.4858322 23.7854658]}}
+; => {:id "Lillan",
+;     :tags #{:coffee :artesan :garden},
+;     :address {:street "Ahlmanintie 29"
+;               :city "Tampere"
+;               :zip 33100
+;               :lonlat [61.4858322 23.7854658]}}
 ```
 
 Transform map keys:
@@ -1157,12 +1168,12 @@ Transform map keys:
              :zip 33100
              :lonlat [61.4858322 23.7854658]}}
   (mt/key-transformer {:encode name}))
-;{"id" "Lillan",
-; "tags" ["coffee" "artesan" "garden"],
-; "address" {"street" "Ahlmanintie 29"
-;            "city" "Tampere"
-;            "zip" 33100
-;            "lonlat" [61.4858322 23.7854658]}}
+; => {"id" "Lillan",
+;     "tags" ["coffee" "artesan" "garden"],
+;     "address" {"street" "Ahlmanintie 29"
+;                "city" "Tampere"
+;                "zip" 33100
+;                "lonlat" [61.4858322 23.7854658]}}
 ```
 
 Transforming homogenous `:enum` or `:=`s (supports automatic type detection of `:keyword`, `:symbol`, `:int` and `:double`):
@@ -1191,12 +1202,12 @@ Transformers can be composed with `mt/transformer`:
              :zip 33100
              :lonlat [61.4858322 23.7854658]}}
   strict-json-transformer)
-;{:id "Lillan",
-; :tags #{:coffee :artesan :garden},
-; :address {:street "Ahlmanintie 29"
-;           :city "Tampere"
-;           :zip 33100
-;           :lonlat [61.4858322 23.7854658]}}
+; => {:id "Lillan",
+;     :tags #{:coffee :artesan :garden},
+;     :address {:street "Ahlmanintie 29"
+;               :city "Tampere"
+;               :zip 33100
+;               :lonlat [61.4858322 23.7854658]}}
 ```
 
 Schema properties can be used to override default transformations:
@@ -1452,9 +1463,9 @@ Single sweep of defaults & string encoding:
   (mt/transformer
     mt/default-value-transformer
     mt/string-transformer))
-;{:a "1"
-; :b ["1" "2" "3"]
-; :c {:x "42"}}
+; => {:a "1"
+;     :b ["1" "2" "3"]
+;     :c {:x "42"}}
 ```
 
 ## Programming with schemas
@@ -1477,48 +1488,48 @@ Lifted `clojure.core` function to work with schemas: `select-keys`, `dissoc`, `g
 ; => [:tuple double? double?]
 
 (mu/update-in Address [:address] mu/assoc :country [:enum "fi" "po"])
-;[:map
-; [:id string?]
-; [:tags [:set keyword?]]
-; [:address
-;  [:map [:street string?]
-;   [:city string?]
-;   [:zip int?]
-;   [:lonlat [:tuple double? double?]]
-;   [:country [:enum "fi" "po"]]]]]
+; => [:map
+;     [:id string?]
+;     [:tags [:set keyword?]]
+;     [:address
+;      [:map [:street string?]
+;       [:city string?]
+;       [:zip int?]
+;       [:lonlat [:tuple double? double?]]
+;       [:country [:enum "fi" "po"]]]]]
 
 (-> Address
     (mu/dissoc :address)
     (mu/update-properties assoc :title "Address"))
-;[:map {:title "Address"}
-; [:id string?]
-; [:tags [:set keyword?]]]
+; => [:map {:title "Address"}
+;     [:id string?]
+;     [:tags [:set keyword?]]]
 ```
 
 Making keys optional or required:
 
 ```clojure
 (mu/optional-keys [:map [:x int?] [:y int?]])
-;[:map
-; [:x {:optional true} int?]
-; [:y {:optional true} int?]]
+; => [:map
+;     [:x {:optional true} int?]
+;     [:y {:optional true} int?]]
 
 (mu/optional-keys [:map [:x int?] [:y int?]]
                   [:x])
-;[:map
-; [:x {:optional true} int?]
-; [:y int?]]
+; => [:map
+;     [:x {:optional true} int?]
+;     [:y int?]]
 
 (mu/required-keys [:map [:x {:optional true} int?] [:y {:optional true} int?]])
-;[:map
-; [:x int?]
-; [:y int?]]
+; => [:map
+;     [:x int?]
+;     [:y int?]]
 
 (mu/required-keys [:map [:x {:optional true} int?] [:y {:optional true} int?]]
                   [:x])
-;[:map
-; [:x int?]
-; [:y {:optional true} int?]]
+; => [:map
+;     [:x int?]
+;     [:y {:optional true} int?]]
 ```
 
 Closing and opening all `:map` schemas recursively:
@@ -1532,20 +1543,20 @@ Closing and opening all `:map` schemas recursively:
         [:d int?]]]])
 
 (mu/closed-schema abcd)
-;[:map {:title "abcd", :closed true}
-; [:a int?]
-; [:b {:optional true} int?]
-; [:c [:map {:closed true}
-;      [:d int?]]]]
+; => [:map {:title "abcd", :closed true}
+;     [:a int?]
+;     [:b {:optional true} int?]
+;     [:c [:map {:closed true}
+;          [:d int?]]]]
 
 (-> abcd
     mu/closed-schema
     mu/open-schema)
-;[:map {:title "abcd"}
-; [:a int?]
-; [:b {:optional true} int?]
-; [:c [:map
-;      [:d int?]]]]
+; => [:map {:title "abcd"}
+;     [:a int?]
+;     [:b {:optional true} int?]
+;     [:c [:map
+;          [:d int?]]]]
 ```
 
 Merging Schemas (last value wins):
@@ -1564,12 +1575,12 @@ Merging Schemas (last value wins):
    [:address
     [:map
      [:country string?]]]])
-;[:map
-; [:name string?]
-; [:description {:optional true} string?]
-; [:address [:map
-;            [:street string?]
-;            [:country string?]]]]
+; => [:map
+;     [:name string?]
+;     [:description {:optional true} string?]
+;     [:address [:map
+;                [:street string?]
+;                [:country string?]]]]
 ```
 
 With `:and`, first child is used in merge:
@@ -1581,11 +1592,11 @@ With `:and`, first child is used in merge:
     [:name :string]]
    map?]
   [:map {:description "aged"} [:age :int]])
-;[:and {:type "entity"}
-; [:map {:title "user", :description "aged"}
-;  [:name :string]
-;  [:age :int]]
-; map?]
+; => [:and {:type "entity"}
+;     [:map {:title "user", :description "aged"}
+;      [:name :string]
+;      [:age :int]]
+;     map?]
 ```
 
 Schema unions (merged values of both schemas are valid for union schema):
@@ -1604,12 +1615,12 @@ Schema unions (merged values of both schemas are valid for union schema):
    [:address
     [:map
      [:country string?]]]])
-;[:map
-; [:name string?]
-; [:description {:optional true} string?]
-; [:address [:map
-;            [:street string?]
-;            [:country [:or [:enum "finland" "poland"] string?]]]]]
+; => [:map
+;     [:name string?]
+;     [:description {:optional true} string?]
+;     [:address [:map
+;                [:street string?]
+;                [:country [:or [:enum "finland" "poland"] string?]]]]]
 ```
 
 Adding generated example values to Schemas:
@@ -1626,16 +1637,16 @@ Adding generated example values to Schemas:
   (m/schema-walker
     (fn [schema]
       (mu/update-properties schema assoc :examples (mg/sample schema {:size 2, :seed 20})))))
-;[:map
-; {:examples ({:name "", :description "", :address {:street "", :country "poland"}}
-;             {:name "W", :description "x", :address {:street "8", :country "finland"}})}
-; [:name [string? {:examples ("" "")}]]
-; [:description [string? {:examples ("" "")}]]
-; [:address
-;  [:map
-;   {:examples ({:street "", :country "finland"} {:street "W", :country "poland"})}
-;   [:street [string? {:examples ("" "")}]]
-;   [:country [:enum {:examples ("finland" "poland")} "finland" "poland"]]]]]
+; => [:map
+;     {:examples ({:name "", :description "", :address {:street "", :country "poland"}}
+;                 {:name "W", :description "x", :address {:street "8", :country "finland"}})}
+;     [:name [string? {:examples ("" "")}]]
+;     [:description [string? {:examples ("" "")}]]
+;     [:address
+;      [:map
+;       {:examples ({:street "", :country "finland"} {:street "W", :country "poland"})}
+;       [:street [string? {:examples ("" "")}]]
+;       [:country [:enum {:examples ("finland" "poland")} "finland" "poland"]]]]]
 ```
 
 Finding first value (prewalk):
@@ -1670,41 +1681,41 @@ Finding all subschemas with paths, retaining order:
         [:fn (fn [{:keys [street lonlat]}] (or street lonlat))]]]]]))
 
 (mu/subschemas Schema)
-;[{:path [], :in [], :schema [:maybe
-;                             [:map
-;                              [:id string?]
-;                              [:tags [:set keyword?]]
-;                              [:address
-;                               [:and
-;                                [:map
-;                                 [:street {:optional true} string?]
-;                                 [:lonlat {:optional true} [:tuple double? double?]]]
-;                                [:fn (fn [{:keys [street lonlat]}] (or street lonlat))]]]]]}
-; {:path [0], :in [], :schema [:map
-;                              [:id string?]
-;                              [:tags [:set keyword?]]
-;                              [:address
-;                               [:and
-;                                [:map
-;                                 [:street {:optional true} string?]
-;                                 [:lonlat {:optional true} [:tuple double? double?]]]
-;                                [:fn (fn [{:keys [street lonlat]}] (or street lonlat))]]]]}
-; {:path [0 :id], :in [:id], :schema string?}
-; {:path [0 :tags], :in [:tags], :schema [:set keyword?]}
-; {:path [0 :tags :malli.core/in], :in [:tags :malli.core/in], :schema keyword?}
-; {:path [0 :address], :in [:address], :schema [:and
-;                                               [:map
-;                                                [:street {:optional true} string?]
-;                                                [:lonlat {:optional true} [:tuple double? double?]]]
-;                                               [:fn (fn [{:keys [street lonlat]}] (or street lonlat))]]}
-; {:path [0 :address 0], :in [:address], :schema [:map
-;                                                 [:street {:optional true} string?]
-;                                                 [:lonlat {:optional true} [:tuple double? double?]]]}
-; {:path [0 :address 0 :street], :in [:address :street], :schema string?}
-; {:path [0 :address 0 :lonlat], :in [:address :lonlat], :schema [:tuple double? double?]}
-; {:path [0 :address 0 :lonlat 0], :in [:address :lonlat 0], :schema double?}
-; {:path [0 :address 0 :lonlat 1], :in [:address :lonlat 1], :schema double?}
-; {:path [0 :address 1], :in [:address], :schema [:fn (fn [{:keys [street lonlat]}] (or street lonlat))]}]
+; => [{:path [], :in [], :schema [:maybe
+;                                 [:map
+;                                  [:id string?]
+;                                  [:tags [:set keyword?]]
+;                                  [:address
+;                                   [:and
+;                                    [:map
+;                                     [:street {:optional true} string?]
+;                                     [:lonlat {:optional true} [:tuple double? double?]]]
+;                                    [:fn (fn [{:keys [street lonlat]}] (or street lonlat))]]]]]}
+;     {:path [0], :in [], :schema [:map
+;                                  [:id string?]
+;                                  [:tags [:set keyword?]]
+;                                  [:address
+;                                   [:and
+;                                    [:map
+;                                     [:street {:optional true} string?]
+;                                     [:lonlat {:optional true} [:tuple double? double?]]]
+;                                    [:fn (fn [{:keys [street lonlat]}] (or street lonlat))]]]]}
+;     {:path [0 :id], :in [:id], :schema string?}
+;     {:path [0 :tags], :in [:tags], :schema [:set keyword?]}
+;     {:path [0 :tags :malli.core/in], :in [:tags :malli.core/in], :schema keyword?}
+;     {:path [0 :address], :in [:address], :schema [:and
+;                                                   [:map
+;                                                    [:street {:optional true} string?]
+;                                                    [:lonlat {:optional true} [:tuple double? double?]]]
+;                                                   [:fn (fn [{:keys [street lonlat]}] (or street lonlat))]]}
+;     {:path [0 :address 0], :in [:address], :schema [:map
+;                                                     [:street {:optional true} string?]
+;                                                     [:lonlat {:optional true} [:tuple double? double?]]]}
+;     {:path [0 :address 0 :street], :in [:address :street], :schema string?}
+;     {:path [0 :address 0 :lonlat], :in [:address :lonlat], :schema [:tuple double? double?]}
+;     {:path [0 :address 0 :lonlat 0], :in [:address :lonlat 0], :schema double?}
+;     {:path [0 :address 0 :lonlat 1], :in [:address :lonlat 1], :schema double?}
+;     {:path [0 :address 1], :in [:address], :schema [:fn (fn [{:keys [street lonlat]}] (or street lonlat))]}]
 ```
 
 Collecting unique value paths and their schema paths:
@@ -1714,18 +1725,18 @@ Collecting unique value paths and their schema paths:
      (mu/subschemas)
      (mu/distinct-by :id)
      (mapv (juxt :in :path)))
-;[[[] []]
-; [[] [0]]
-; [[:id] [0 :id]]
-; [[:tags] [0 :tags]]
-; [[:tags :malli.core/in] [0 :tags :malli.core/in]]
-; [[:address] [0 :address]]
-; [[:address] [0 :address 0]]
-; [[:address :street] [0 :address 0 :street]]
-; [[:address :lonlat] [0 :address 0 :lonlat]]
-; [[:address :lonlat 0] [0 :address 0 :lonlat 0]]
-; [[:address :lonlat 1] [0 :address 0 :lonlat 1]]
-; [[:address] [0 :address 1]]]
+; => [[[] []]
+;     [[] [0]]
+;     [[:id] [0 :id]]
+;     [[:tags] [0 :tags]]
+;     [[:tags :malli.core/in] [0 :tags :malli.core/in]]
+;     [[:address] [0 :address]]
+;     [[:address] [0 :address 0]]
+;     [[:address :street] [0 :address 0 :street]]
+;     [[:address :lonlat] [0 :address 0 :lonlat]]
+;     [[:address :lonlat 0] [0 :address 0 :lonlat 0]]
+;     [[:address :lonlat 1] [0 :address 0 :lonlat 1]]
+;     [[:address] [0 :address 1]]]
 ```
 
 Schema paths can be converted into value paths:
@@ -1760,14 +1771,14 @@ There are also declarative versions of schema transforming utilities in `malli.u
     {:registry registry}))
 
 Merged
-;[:merge
-; [:map [:x :string]]
-; [:map [:y :int]]]
+; => [:merge
+;     [:map [:x :string]]
+;     [:map [:y :int]]]
 
 (m/deref Merged)
-;[:map
-; [:x :string]
-; [:y :int]]
+; => [:map
+;     [:x :string]
+;     [:y :int]]
 
 (m/validate Merged {:x "kikka", :y 6})
 ; => true
@@ -1912,15 +1923,15 @@ functions](#serializable-functions).
       [:y int?]]
      [:fn '(fn [{:keys [x y]}] (> x y))]]
     (edn/write-string)
-    (doto prn) ; => "[:and [:map [:x int?] [:y int?]] [:fn (fn [{:keys [x y]}] (> x y))]]"
+    (doto prn) ; -> "[:and [:map [:x int?] [:y int?]] [:fn (fn [{:keys [x y]}] (> x y))]]"
     (edn/read-string)
-    (doto (-> (m/validate {:x 0, :y 1}) prn)) ; => false
-    (doto (-> (m/validate {:x 2, :y 1}) prn))) ; => true
-;[:and
-; [:map
-;  [:x int?]
-;  [:y int?]]
-; [:fn (fn [{:keys [x y]}] (> x y))]]
+    (doto (-> (m/validate {:x 0, :y 1}) prn)) ; -> false
+    (doto (-> (m/validate {:x 2, :y 1}) prn))) ; -> true
+; => [:and
+;     [:map
+;      [:x int?]
+;      [:y int?]]
+;     [:fn (fn [{:keys [x y]}] (> x y))]]
 ```
 
 ## Multi schemas
@@ -1933,7 +1944,7 @@ Closed dispatch with `:multi` schema and `:dispatch` property:
    [:sized [:map [:type keyword?] [:size int?]]]
    [:human [:map [:type keyword?] [:name string?] [:address [:map [:country keyword?]]]]]]
   {:type :sized, :size 10})
-; true
+; => true
 ```
 
 Default branch with `::m/default`:
@@ -2193,7 +2204,7 @@ we need to use `:gen/fmap` to make it generate vectors:
                    vector?]
              {:size 1
               :seed 2})
-;=> [:.+ [1]]
+; => [:.+ [1]]
 ```
 
 ## Inferring schemas
@@ -2219,16 +2230,16 @@ Inspired by [F# Type providers](https://docs.microsoft.com/en-us/dotnet/fsharp/t
               :lonlat [61.4963599 23.7604916]}}])
 
 (mp/provide samples)
-;[:map
-; [:id :string]
-; [:tags [:set :keyword]]
-; [:address
-;  [:map
-;   [:street :string]
-;   [:city :string]
-;   [:zip :int]
-;   [:lonlat [:vector :double]]]]
-; [:description {:optional true} :string]]
+; => [:map
+;     [:id :string]
+;     [:tags [:set :keyword]]
+;     [:address
+;      [:map
+;       [:street :string]
+;       [:city :string]
+;       [:zip :int]
+;       [:lonlat [:vector :double]]]]
+;     [:description {:optional true} :string]]
 ```
 
 All samples are valid against the inferred schema:
@@ -2260,10 +2271,10 @@ By default, `:map-of` is not inferred:
  [{"1" [1]}
   {"2" [1 2]}
   {"3" [1 2 3]}])
-;[:map
-; ["1" {:optional true} [:vector :int]]
-; ["2" {:optional true} [:vector :int]]
-; ["3" {:optional true} [:vector :int]]]
+; => [:map
+;     ["1" {:optional true} [:vector :int]]
+;     ["2" {:optional true} [:vector :int]]
+;     ["3" {:optional true} [:vector :int]]]
 ```
 
 With `::mp/map-of-threshold` option:
@@ -2274,7 +2285,7 @@ With `::mp/map-of-threshold` option:
   {"2" [1 2]}
   {"3" [1 2 3]}]
  {::mp/map-of-threshold 3})
-; [:map-of :string [:vector :int]]
+; => [:map-of :string [:vector :int]]
 ```
 
 Sample-data can be type-hinted with `::mp/hint`:
@@ -2286,11 +2297,11 @@ Sample-data can be type-hinted with `::mp/hint`:
     :b {:b 2, :c 1}
     :c {:b 3}
     :d nil}])
-;[:map-of 
-; :keyword 
-; [:maybe [:map 
-;          [:b :int] 
-;          [:c {:optional true} :int]]]]
+; => [:map-of
+;     :keyword
+;     [:maybe [:map
+;              [:b :int]
+;              [:c {:optional true} :int]]]]
 ```
 
 ### :tuple inferring
@@ -2302,7 +2313,7 @@ By default, tuples are not inferred:
   [[1 "kikka" true]
    [2 "kukka" true]
    [3 "kakka" true]])
-; [:vector :some]
+; => [:vector :some]
 ```
 
 With `::mp/tuple-threshold` option:
@@ -2313,7 +2324,7 @@ With `::mp/tuple-threshold` option:
    [2 "kukka" true]
    [3 "kakka" false]]
   {::mp/tuple-threshold 3})
-; [:tuple :int :string :boolean]
+; => [:tuple :int :string :boolean]
 ```
 
 Sample-data can be type-hinted with `::mp/hint`:
@@ -2323,7 +2334,7 @@ Sample-data can be type-hinted with `::mp/hint`:
   [^{::mp/hint :tuple}
    [1 "kikka" true]
    ["2" "kukka" true]])
-; [:tuple :some string? boolean?]
+; => [:tuple :some string? boolean?]
 ```
 
 ### value decoding in inferring
@@ -2377,9 +2388,9 @@ Pulling out function argument schemas from Vars:
   ([a b & cs] [a b cs]))
 
 (md/infer #'kikka)
-;[:function
-; [:=> [:cat :any] :any]
-; [:=> [:cat :any :any [:* :any]] :any]]
+; => [:function
+;     [:=> [:cat :any] :any]
+;     [:=> [:cat :any :any [:* :any]] :any]]
 ```
 
 `md/parse` uses the following options:
@@ -2402,33 +2413,33 @@ A more complete example:
             [h] :h
             :or {d 0}
             :as opts}])
-;[:cat
-; :any
-; [:maybe [:cat
-;          [:? :any]
-;          [:? :any]
-;          [:* :any]]]
-; [:altn
-;  [:map
-;   [:map
-;    [:d {:optional true} :any]
-;    [:e {:optional true} :any]
-;    [:demo/f {:optional true}]
-;    [:demo/g {:optional true}]
-;    [:h {:optional true} [:maybe [:cat
-;                                  [:? :any]
-;                                  [:* :any]]]]]]
-;  [:args
-;   [:*
-;    [:alt
-;     [:cat [:= :d] :any]
-;     [:cat [:= :e] :any]
-;     [:cat [:= :demo/f] :demo/f]
-;     [:cat [:= :demo/g] :demo/g]
-;     [:cat [:= :h] [:maybe [:cat
-;                            [:? :any]
-;                            [:* :any]]]]
-;     [:cat :any :any]]]]]]
+; => [:cat
+;     :any
+;     [:maybe [:cat
+;              [:? :any]
+;              [:? :any]
+;              [:* :any]]]
+;     [:altn
+;      [:map
+;       [:map
+;        [:d {:optional true} :any]
+;        [:e {:optional true} :any]
+;        [:demo/f {:optional true}]
+;        [:demo/g {:optional true}]
+;        [:h {:optional true} [:maybe [:cat
+;                                      [:? :any]
+;                                      [:* :any]]]]]]
+;      [:args
+;       [:*
+;        [:alt
+;         [:cat [:= :d] :any]
+;         [:cat [:= :e] :any]
+;         [:cat [:= :demo/f] :demo/f]
+;         [:cat [:= :demo/g] :demo/g]
+;         [:cat [:= :h] [:maybe [:cat
+;                                [:? :any]
+;                                [:* :any]]]]
+;         [:cat :any :any]]]]]]
 ```
 
 ## Parsing values
@@ -2445,9 +2456,9 @@ Schemas can be used to parse values using `m/parse` and `m/parser`:
               [:s string?]
               [:b boolean?]]]]]
   ["-server" "foo" "-verbose" true "-user" "joe"])
-;[#malli.core.Tags{:values {:prop "-server", :val #malli.core.Tag{:key :s, :value "foo"}}}
-; #malli.core.Tags{:values {:prop "-verbose", :val #malli.core.Tag{:key :b, :value true}}}
-; #malli.core.Tags{:values {:prop "-user", :val #malli.core.Tag{:key :s, :value "joe"}}}]
+; => [#malli.core.Tags{:values {:prop "-server", :val #malli.core.Tag{:key :s, :value "foo"}}}
+;     #malli.core.Tags{:values {:prop "-verbose", :val #malli.core.Tag{:key :b, :value true}}}
+;     #malli.core.Tags{:values {:prop "-user", :val #malli.core.Tag{:key :s, :value "joe"}}}]
 
 ```
 
@@ -2473,24 +2484,24 @@ Schemas can be used to parse values using `m/parse` and `m/parser`:
   [:div {:class [:foo :bar]}
    [:p "Hello, world of data"]])
 
-;#malli.core.Tag
-;{:key :node,
-; :value
-; #malli.core.Tags
-; {:values {:name :div,
-;           :props {:class [:foo :bar]},
-;           :children [#malli.core.Tag
-;                      {:key :node,
-;                       :value
-;                       #malli.core.Tags
-;                       {:values {:name :p,
-;                                 :props nil,
-;                                 :children [#malli.core.Tag
-;                                            {:key :primitive,
-;                                             :value
-;                                             #malli.core.Tag
-;                                             {:key :text,
-;                                              :value "Hello, world of data"}}]}}}]}}}
+; => #malli.core.Tag
+;    {:key :node,
+;     :value
+;     #malli.core.Tags
+;     {:values {:name :div,
+;               :props {:class [:foo :bar]},
+;               :children [#malli.core.Tag
+;                          {:key :node,
+;                           :value
+;                           #malli.core.Tags
+;                           {:values {:name :p,
+;                                     :props nil,
+;                                     :children [#malli.core.Tag
+;                                                {:key :primitive,
+;                                                 :value
+;                                                 #malli.core.Tag
+;                                                 {:key :text,
+;                                                  :value "Hello, world of data"}}]}}}]}}}
 ```
 
 Parsing returns tagged values for `:orn`, `:catn`, `:altn` and `:multi`.
@@ -2517,8 +2528,8 @@ The inverse of parsing, using `m/unparse` and `m/unparser`:
       [:p "Hello, world of data"]]
      (m/parse Hiccup)
      (m/unparse Hiccup))
-;[:div {:class [:foo :bar]}
-; [:p "Hello, world of data"]]
+; => [:div {:class [:foo :bar]}
+;     [:p "Hello, world of data"]]
 ```
 
 ```clojure
@@ -2580,26 +2591,26 @@ Implemented with protocol `malli.core/AST`. Allows lossless round-robin with fas
         [:y {:optional true} int?]]]])
 
 (m/form ?schema)
-;[:map
-; [:x boolean?]
-; [:y {:optional true} int?]
-; [:z [:map
-;      [:x boolean?]
-;      [:y {:optional true} int?]]]]
+; => [:map
+;     [:x boolean?]
+;     [:y {:optional true} int?]
+;     [:z [:map
+;          [:x boolean?]
+;          [:y {:optional true} int?]]]]
 
 (m/ast ?schema)
-;{:type :map,
-; :keys {:x {:order 0
-;            :value {:type boolean?}},
-;        :y {:order 1, :value {:type int?}
-;            :properties {:optional true}},
-;        :z {:order 2,
-;            :value {:type :map,
-;                    :keys {:x {:order 0
-;                               :value {:type boolean?}},
-;                           :y {:order 1
-;                               :value {:type int?}
-;                               :properties {:optional true}}}}}}}
+; => {:type :map,
+;     :keys {:x {:order 0
+;                :value {:type boolean?}},
+;            :y {:order 1, :value {:type int?}
+;                :properties {:optional true}},
+;            :z {:order 2,
+;                :value {:type :map,
+;                        :keys {:x {:order 0
+;                                   :value {:type boolean?}},
+;                               :y {:order 1
+;                                   :value {:type int?}
+;                                   :properties {:optional true}}}}}}}
 
 (-> ?schema
     (m/schema) ;; 3.4µs
@@ -2620,15 +2631,15 @@ The identity walker:
 (m/walk
   Address
   (m/schema-walker identity))
-;[:map
-; [:id string?]
-; [:tags [:set keyword?]]
-; [:address
-;  [:map
-;   [:street string?]
-;   [:city string?]
-;   [:zip int?]
-;   [:lonlat [:tuple double? double?]]]]]
+; => [:map
+;     [:id string?]
+;     [:tags [:set keyword?]]
+;     [:address
+;      [:map
+;       [:street string?]
+;       [:city string?]
+;       [:zip int?]
+;       [:lonlat [:tuple double? double?]]]]]
 ```
 
 Adding `:title` property to schemas:
@@ -2637,15 +2648,15 @@ Adding `:title` property to schemas:
 (m/walk
   Address
   (m/schema-walker #(mu/update-properties % assoc :title (name (m/type %)))))
-;[:map {:title "map"}
-; [:id [string? {:title "string?"}]]
-; [:tags [:set {:title "set"} [keyword? {:title "keyword?"}]]]
-; [:address
-;  [:map {:title "map"}
-;   [:street [string? {:title "string?"}]]
-;   [:city [string? {:title "string?"}]]
-;   [:zip [int? {:title "int?"}]]
-;   [:lonlat [:tuple {:title "tuple"} [double? {:title "double?"}] [double? {:title "double?"}]]]]]]
+; => [:map {:title "map"}
+;     [:id [string? {:title "string?"}]]
+;     [:tags [:set {:title "set"} [keyword? {:title "keyword?"}]]]
+;     [:address
+;      [:map {:title "map"}
+;       [:street [string? {:title "string?"}]]
+;       [:city [string? {:title "string?"}]]
+;       [:zip [int? {:title "int?"}]]
+;       [:lonlat [:tuple {:title "tuple"} [double? {:title "double?"}] [double? {:title "double?"}]]]]]]
 ```
 
 Transforming schemas into maps:
@@ -2657,17 +2668,17 @@ Transforming schemas into maps:
     (-> (m/properties schema)
         (assoc :malli/type (m/type schema))
         (cond-> (seq children) (assoc :malli/children children)))))
-;{:malli/type :map,
-; :malli/children [[:id nil {:malli/type string?}]
-;                  [:tags nil {:malli/type :set
-;                              :malli/children [{:malli/type keyword?}]}]
-;                  [:address nil {:malli/type :map,
-;                                 :malli/children [[:street nil {:malli/type string?}]
-;                                                  [:city nil {:malli/type string?}]
-;                                                  [:zip nil {:malli/type int?}]
-;                                                  [:lonlat nil {:malli/type :tuple
-;                                                                :malli/children [{:malli/type double?}
-;                                                                                 {:malli/type double?}]}]]}]]}
+; => {:malli/type :map,
+;     :malli/children [[:id nil {:malli/type string?}]
+;                      [:tags nil {:malli/type :set
+;                                  :malli/children [{:malli/type keyword?}]}]
+;                      [:address nil {:malli/type :map,
+;                                     :malli/children [[:street nil {:malli/type string?}]
+;                                                      [:city nil {:malli/type string?}]
+;                                                      [:zip nil {:malli/type int?}]
+;                                                      [:lonlat nil {:malli/type :tuple
+;                                                                    :malli/children [{:malli/type double?}
+;                                                                                     {:malli/type double?}]}]]}]]}
 ```
 
 ### JSON Schema
@@ -2678,20 +2689,20 @@ Transforming Schemas into [JSON Schema](https://json-schema.org/):
 (require '[malli.json-schema :as json-schema])
 
 (json-schema/transform Address)
-;{:type "object",
-; :properties {:id {:type "string"},
-;              :tags {:type "array"
-;                     :items {:type "string"}
-;                     :uniqueItems true},
-;              :address {:type "object",
-;                        :properties {:street {:type "string"},
-;                                     :city {:type "string"},
-;                                     :zip {:type "integer", :format "int64"},
-;                                     :lonlat {:type "array",
-;                                              :items [{:type "number"} {:type "number"}],
-;                                              :additionalItems false}},
-;                        :required [:street :city :zip :lonlat]}},
-; :required [:id :tags :address]}
+; => {:type "object",
+;     :properties {:id {:type "string"},
+;                  :tags {:type "array"
+;                         :items {:type "string"}
+;                         :uniqueItems true},
+;                  :address {:type "object",
+;                            :properties {:street {:type "string"},
+;                                         :city {:type "string"},
+;                                         :zip {:type "integer", :format "int64"},
+;                                         :lonlat {:type "array",
+;                                                  :items [{:type "number"} {:type "number"}],
+;                                                  :additionalItems false}},
+;                            :required [:street :city :zip :lonlat]}},
+;     :required [:id :tags :address]}
 ```
 
 Custom transformation via `:json-schema` namespaced properties:
@@ -2704,11 +2715,11 @@ Custom transformation via `:json-schema` namespaced properties:
     :json-schema/type "string"
     :json-schema/default "perch"}
    "perch" "pike"])
-;{:title "Fish"
-; :description "It's a fish"
-; :type "string"
-; :default "perch"
-; :enum ["perch" "pike"]}
+; => {:title "Fish"
+;     :description "It's a fish"
+;     :type "string"
+;     :default "perch"
+;     :enum ["perch" "pike"]}
 ```
 
 Full override with `:json-schema` property:
@@ -2717,7 +2728,7 @@ Full override with `:json-schema` property:
 (json-schema/transform
   [:map {:json-schema {:type "file"}}
    [:file any?]])
-; {:type "file"}
+; => {:type "file"}
 ```
 
 ### Swagger2
@@ -2728,21 +2739,21 @@ Transforming Schemas into [Swagger2 Schema](https://github.com/OAI/OpenAPI-Speci
 (require '[malli.swagger :as swagger])
 
 (swagger/transform Address)
-;{:type "object",
-; :properties {:id {:type "string"},
-;              :tags {:type "array"
-;                     :items {:type "string"}
-;                     :uniqueItems true},
-;              :address {:type "object",
-;                        :properties {:street {:type "string"},
-;                                     :city {:type "string"},
-;                                     :zip {:type "integer", :format "int64"},
-;                                     :lonlat {:type "array",
-;                                              :items {},
-;                                              :x-items [{:type "number", :format "double"}
-;                                                        {:type "number", :format "double"}]}},
-;                        :required [:street :city :zip :lonlat]}},
-; :required [:id :tags :address]}
+; => {:type "object",
+;     :properties {:id {:type "string"},
+;                  :tags {:type "array"
+;                         :items {:type "string"}
+;                         :uniqueItems true},
+;                  :address {:type "object",
+;                            :properties {:street {:type "string"},
+;                                         :city {:type "string"},
+;                                         :zip {:type "integer", :format "int64"},
+;                                         :lonlat {:type "array",
+;                                                  :items {},
+;                                                  :x-items [{:type "number", :format "double"}
+;                                                            {:type "number", :format "double"}]}},
+;                            :required [:street :city :zip :lonlat]}},
+;     :required [:id :tags :address]}
 ```
 
 Custom transformation via `:swagger` and `:json-schema` namespaced properties:
@@ -2755,11 +2766,11 @@ Custom transformation via `:swagger` and `:json-schema` namespaced properties:
     :swagger/type "string"
     :json-schema/default "perch"}
    "perch" "pike"])
-;{:title "Fish"
-; :description "It's a fish"
-; :type "string"
-; :default "perch"
-; :enum ["perch" "pike"]}
+; => {:title "Fish"
+;     :description "It's a fish"
+;     :type "string"
+;     :default "perch"
+;     :enum ["perch" "pike"]}
 ```
 
 Full override with `:swagger` property:
@@ -2768,7 +2779,7 @@ Full override with `:swagger` property:
 (swagger/transform
   [:map {:swagger {:type "file"}}
    [:file any?]])
-; {:type "file"}
+; => {:type "file"}
 ```
 
 ## Custom schema types
@@ -2947,7 +2958,7 @@ Passing in custom options to all public methods is a lot of boilerplate. For the
 
 ;; the default registry
 (-> m/default-registry (mr/schemas) (count))
-;=> 140
+; => 140
 
 ;; global side-effects! free since 0.7.0!
 (mr/set-default-registry!
@@ -3192,16 +3203,16 @@ Generating `clj-kondo` configuration from current namespace:
 (require '[malli.clj-kondo :as mc])
 
 (-> (mc/collect *ns*) (mc/linter-config))
-;{:lint-as #:malli.schema{defn schema.core/defn},
-; :linters
-; {:type-mismatch
-;  {:namespaces
-;   {user {square {:arities {1 {:args [:int]
-;                               :ret :pos-int}}}
-;          plus {:arities {1 {:args [:int]
-;                             :ret :int},
-;                          2 {:args [:int :int]
-;                             :ret :int}}}}}}}}
+; => {:lint-as #:malli.schema{defn schema.core/defn},
+;     :linters
+;     {:type-mismatch
+;      {:namespaces
+;       {user {square {:arities {1 {:args [:int]
+;                                   :ret :pos-int}}}
+;              plus {:arities {1 {:args [:int]
+;                                 :ret :int},
+;                              2 {:args [:int :int]
+;                                 :ret :int}}}}}}}}
 ```
 
 Emitting confing into `./.clj-kondo/configs/malli/config.edn`:
@@ -3313,17 +3324,17 @@ As the namespace suggests, it's experimental, built for [reitit](https://github.
          :set-of-maps (l/set {:e int?
                               :f string?})
          :map-of-int (l/map-of int? {:s string?})}})
-;[:map
-; [:map1
-;  [:map
-;   [:x int?]
-;   [:y [:maybe string?]]
-;   [:z [:maybe keyword?]]]]
-; [:map2
-;  [:map
-;   [:min-max [:int {:min 0, :max 10}]]
-;   [:tuples [:vector [:tuple int? string?]]]
-;   [:optional {:optional true} [:maybe :boolean]]
+; => [:map
+;     [:map1
+;      [:map
+;       [:x int?]
+;       [:y [:maybe string?]]
+;       [:z [:maybe keyword?]]]]
+;     [:map2
+;      [:map
+;       [:min-max [:int {:min 0, :max 10}]]
+;       [:tuples [:vector [:tuple int? string?]]]
+;       [:optional {:optional true} [:maybe :boolean]]
 ```
 
 Options can be used by binding a dynamic `l/*options*` Var:
@@ -3334,9 +3345,9 @@ Options can be used by binding a dynamic `l/*options*` Var:
                                   {:user/id :int})}]
   (l/schema {:id (l/maybe :user/id)
              :child {:id :user/id}}))
-;[:map
-; [:id [:maybe :user/id]]
-; [:child [:map [:id :user/id]]]]
+; => [:map
+;     [:id [:maybe :user/id]]
+;     [:child [:map [:id :user/id]]]]
 ```
 
 ## Performance
