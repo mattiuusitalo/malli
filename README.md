@@ -824,7 +824,9 @@ Or if you already have a malli validation exception (e.g. in a catch form):
   (m/assert Address {:not "an address"})
   (catch Exception e
     (-> e ex-data :data :explain me/humanize)))
-; => {:street ["missing required key"], :country ["missing required key"]}
+; => {:id ["missing required key"],
+;     :tags ["missing required key"],
+;     :address ["missing required key"]}
 ```
 
 ## Custom error messages
