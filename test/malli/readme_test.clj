@@ -1,5 +1,5 @@
 (ns malli.readme-test
-  (:require  [clojure.test :as t]
+  (:require  [clojure.test :as t :refer [deftest is]]
              [clojure.string :as str]
              [malli.registry :as mr]
              ;; Following namespaces & aliases are used in the examples
@@ -51,8 +51,8 @@
                    (do (load-string form)
                        true)
                    (let [result (load-string form)
-                         pass? (= (canonicalize result)
-                                  (canonicalize-str expected))]
+                         pass? (is (= (canonicalize-str expected)
+                                      (canonicalize result)))]
                      pass?))))))
 
 
@@ -60,20 +60,17 @@
   (->> (re-seq #"(?ms)```clojure(?! notest).*?```" (slurp "README.md"))
        (map #(str/replace %  #"```(clojure)?" ""))))
 
-(->>
- (for [i (range (dec (count examples)))
-       :let [ex (nth examples i)
-             test-result
-             (try
-               (try-example ex)
-               (catch Throwable t
-                 (str "exception!" (.getMessage t))))]]
-   [i ex test-result])
- (map (fn [[i ex test-result]]
-        (format "-------------------------\nTEST: %d RESULT: %s\n%s\n---------------------------"
-                i test-result ex)))
- (str/join "\n")
- (spit "results.txt"))
+(deftest auto-tests
+  (doall
+   (for [i (range (dec (count examples)))
+         :let [ex (nth examples i)
+               test-result
+               (try
+                 (is (try-example ex) "Doesn't evaluate to expected result!")
+                 (catch Throwable t
+                   (is false
+                       (str "Example evaluated to exception!" (.getMessage t) "\n" ex))))]]
+     [i ex test-result])))
 
 
 (comment
