@@ -3184,7 +3184,7 @@ See [Instrumentation](docs/function-schemas.md#instrumentation).
 
 Given functions and function Schemas:
 
-```clojure
+```clojure notest
 (defn square [x] (* x x))
 (m/=> square [:=> [:cat int?] nat-int?])
 
@@ -3199,7 +3199,7 @@ Given functions and function Schemas:
 
 Generating `clj-kondo` configuration from current namespace:
 
-```clojure
+```clojure notest
 (require '[malli.clj-kondo :as mc])
 
 (-> (mc/collect *ns*) (mc/linter-config))
@@ -3217,7 +3217,7 @@ Generating `clj-kondo` configuration from current namespace:
 
 Emitting confing into `./.clj-kondo/configs/malli/config.edn`:
 
-```clojure
+```clojure notest
 (mc/emit!)
 ```
 
@@ -3358,7 +3358,7 @@ Malli tries to be really, really fast.
 
 Usually as fast (or faster) as idiomatic Clojure.
 
-```clojure
+```clojure notest
 (require '[criterium.core :as cc])
 
 (def valid {:x true, :y 1, :z "zorro"})
@@ -3385,7 +3385,7 @@ Usually as fast (or faster) as idiomatic Clojure.
 
 Same with Clojure Spec and Plumatic Schema:
 
-```clojure
+```clojure notest
 (require '[clojure.spec.alpha :as spec])
 (require '[schema.core :as schema])
 
@@ -3411,7 +3411,7 @@ Same with Clojure Spec and Plumatic Schema:
 
 Usually faster than idiomatic Clojure.
 
-```clojure
+```clojure notest
 (def data {:x "true", :y "1", :z "kikka"})
 (def expected {:x true, :y 1, :z "kikka"})
 
@@ -3435,7 +3435,7 @@ Usually faster than idiomatic Clojure.
 
 Same with Clojure Spec and Plumatic Schema:
 
-```clojure
+```clojure notest
 (require '[spec-tools.core :as st])
 (require '[schema.coerce :as sc])
 
@@ -3460,7 +3460,7 @@ Same with Clojure Spec and Plumatic Schema:
 
 The transformation engine is smart enough to just transform parts of the schema that need to be transformed. If there is nothing to transform, `identity` function is returned.
 
-```clojure
+```clojure notest
 (def json->user
   (m/decoder
     [:map
@@ -3487,7 +3487,7 @@ The transformation engine is smart enough to just transform parts of the schema 
 
 ### Parsing performance
 
-```clojure
+```clojure notest
 ;; 37µs
 (let [spec (s/* (s/cat :prop string?,
                        :val (s/alt :s string?
@@ -3589,7 +3589,7 @@ to make use of zone related time objects.
 
 For example, to include only timezone data for +/- 5 years from the time the library was released, use:
 
-```clojure
+```clojure notest
 (ns com.my-co.my-app
   (:require ["@js-joda/timezone/dist/js-joda-timezone-10-year-range"]))
 ```
@@ -3602,7 +3602,7 @@ https://github.com/js-joda/js-joda/tree/main/packages/timezone
 
 Time schemas respect min/max predicates for their respective types:
 
-```clojure
+```clojure notest
 (import (java.time LocalTime))
 
 [:time/local-time {:min (LocalTime/parse "12:00:00") :max (LocalTime/parse "13:00:00")}]
@@ -3626,7 +3626,7 @@ Formats can be configured by providing a `formatter` or a `pattern` property
 - pattern: should be a string
 - formatter: should be a DateTimeFormatter
 
-```clojure
+```clojure notest
 (require '[malli.experimental.time.transform :as mett])
 
 (as-> "20200101" $
@@ -3645,7 +3645,7 @@ Generated data also respects min/max properties.
 When generating `Period`s there is no way distinguish between `nil` values and zero for each unit, so zero units will
 not constrain the generator, if you need some of the units to be zero in generated `Period`s you can always `gen/fmap` the data:
 
-```clojure
+```clojure notest
 [:time/period {:gen/fmap #(. % withMonths 0) :min (. Period of -10 0 1)}]
 ```
 This would generate `Period`s with a minimum years unit of -10, minimum days unit of 1 and months unit always equal to zero.
