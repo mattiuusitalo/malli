@@ -3235,7 +3235,7 @@ schema syntax to statically type check and infer Clojure code.
 See this in action in the [malli-type-providers](https://github.com/typedclojure/typedclojure/tree/main/example-projects/malli-type-providers)
 example project.
 
-```clojure
+```clojure notest
 (ns typed-example.malli-type-providers
   (:require [typed.clojure :as t]
             [malli.core :as m]))
