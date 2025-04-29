@@ -78,7 +78,7 @@ Malli is tested with the LTS releases Java 8, 11, 17 and 21.
 
 ## Quickstart
 
-```clojure
+```clojure notest
 (require '[malli.core :as m])
 
 (def UserId :string)
@@ -115,14 +115,14 @@ Malli supports [Vector](#vector-syntax), [Map](#map-syntax) and [Lite](#lite) sy
 
 The default syntax uses vectors, inspired by [hiccup](https://github.com/weavejester/hiccup):
 
-```clojure
+```clojure notest
 type
 [type & children]
 [type properties & children]
 ```
 Examples:
 
-```clojure
+```clojure notest
 ;; just a type (String)
 :string
 
@@ -164,7 +164,7 @@ Alternative map-syntax, similar to [cljfx](https://github.com/cljfx/cljfx):
 
 **NOTE**: For now, Map syntax in considered as internal, so don't use it as a database persistency model.
 
-```clojure
+```clojure notest
 ;; just a type (String)
 {:type :string}
 
@@ -563,7 +563,7 @@ a seqex child `:schema` can be used:
 
 Although a lot of effort has gone into making the seqex implementation fast
 
-```clojure
+```clojure notest
 (require '[clojure.spec.alpha :as s])
 (require '[criterium.core :as cc])
 
@@ -576,7 +576,7 @@ Although a lot of effort has gone into making the seqex implementation fast
 
 it is always better to use less general tools whenever possible:
 
-```clojure
+```clojure notest
 (let [valid? (partial s/valid? (s/coll-of int?))]
   (cc/quick-bench (valid? (range 10)))) ; Execution time mean : 1.8µs
 
@@ -1409,7 +1409,7 @@ With custom key and type defaults:
 
 With custom function:
 
-```clojure
+```clojure notest
 (m/decode
  [:map
   [:os [:string {:property "os.name"}]]
@@ -1625,7 +1625,7 @@ Schema unions (merged values of both schemas are valid for union schema):
 
 Adding generated example values to Schemas:
 
-```clojure
+```clojure notest
 (m/walk
   [:map
    [:name string?]
@@ -1844,7 +1844,7 @@ is equivalent to `[:map [:x [:or :string :int]]]`.
 `:merge` also distributes over `:multi` in a [similar way](https://en.wikipedia.org/wiki/Distributive_property) to how multiplication
 distributes over addition in arithmetic. There are two transformation rules, applied in the following order:
 
-```clojure
+```clojure notest
 ;; right-distributive
 [:merge [:multi M1 M2 ...] M3]
 =>
@@ -1859,7 +1859,7 @@ distributes over addition in arithmetic. There are two transformation rules, app
 For `:merge` with more than two arguments, the rules are applied iteratively left-to-right
 as if the following transformation was applied:
 
-```clojure
+```clojure notest
 [:merge M1 M2 M3 M4 ...]
 =>
 [:merge
@@ -2012,7 +2012,7 @@ For example, here is a recursive schema using `:schema` for singly-linked lists 
 
 Without the `:ref` keyword, malli eagerly expands the schema until a stack overflow error is thrown:
 
-```clojure
+```clojure notest
 (m/validate
   [:schema {:registry {::cons [:maybe [:tuple pos-int? ::cons]]}}
    ::cons]
@@ -2023,7 +2023,7 @@ Without the `:ref` keyword, malli eagerly expands the schema until a stack overf
 Technically, you only need the `:ref` in recursive positions. However, it is best practice to `:ref` all references
 to recursive variables for better-behaving generators:
 
-```clojure
+```clojure notest
 ;; Note:
 [:schema {:registry {::cons [:maybe [:tuple pos-int? [:ref ::cons]]]}}
  ::cons]
@@ -2066,7 +2066,7 @@ Nested registries, the last definition wins:
 
 Schemas can be used to generate values:
 
-```clojure
+```clojure notest
 (require '[malli.generator :as mg])
 
 ;; random
@@ -2157,7 +2157,7 @@ Generated values are valid:
 
 Sampling values:
 
-```clojure
+```clojure notest
 ;; sampling
 (mg/sample [:and int? [:> 10] [:< 100]] {:seed 123})
 ; => (25 39 51 13 53 43 57 15 26 27)
@@ -2165,7 +2165,7 @@ Sampling values:
 
 Integration with test.check:
 
-```clojure
+```clojure notest
 (require '[clojure.test.check.generators :as gen])
 (gen/sample (mg/generator pos-int?))
 ; => (2 1 2 2 2 2 8 1 55 83)
@@ -2179,7 +2179,7 @@ out any values that do not pass the overall `:and` schema.
 For the most reliable results, place the schema that is most likely to generate valid
 values for the entire schema as the first child of an `:and` schema.
 
-```clojure
+```clojure notest
 ;; BAD: :string is unlikely to generate values satisfying the schema
 (mg/generate [:and :string [:enum "a" "b" "c"]] {:seed 42})
 ; Execution error
@@ -2197,7 +2197,7 @@ For example, a schema for non-empty heterogeneous vectors can validate values
 by combining `:cat` and `vector?`, but since `:cat` generates sequences
 we need to use `:gen/fmap` to make it generate vectors:
 
-```clojure
+```clojure notest
 ;; generate a non-empty vector starting with a keyword
 (mg/generate [:and [:cat {:gen/fmap vec}
                     :keyword [:* :any]]
@@ -2251,7 +2251,7 @@ All samples are valid against the inferred schema:
 
 For better performance, use `mp/provider`:
 
-```clojure
+```clojure notest
 (require '[criterium.core :as p])
 
 ;; 5ms
@@ -2569,7 +2569,7 @@ For GraalVM, you need to require `sci.core` manually, before requiring any malli
 
 **NOTE**: [sci is not termination safe](https://github.com/borkdude/sci/issues/348) so be wary of `sci` functions from untrusted sources. You can explicitly disable sci with option `::m/disable-sci` and set the default options with `::m/sci-options`.
 
-```clojure
+```clojure notest
 (m/validate [:fn 'int?] 1 {::m/disable-sci true})
 ; Execution error
 ; :malli.core/sci-not-available {:code int?}
@@ -2848,7 +2848,7 @@ register the types:
 
 You can also build content-dependent schemas by using a callback function `:compile` of type `properties children options -> opts`:
 
-```clojure
+```clojure notest
 (def Between
   (m/-simple-schema
    {:type `Between
@@ -2918,7 +2918,7 @@ Here's an example to create a custom registry without the default core predicate
 
 We did not register normal predicate schemas:
 
-```clojure
+```clojure notest
 (m/validate pos-int? 123 {:registry registry})
 ; Syntax error (ExceptionInfo) compiling
 ; :malli.core/invalid-schema {:schema pos-int?}
@@ -3023,7 +3023,7 @@ Just a `Map`.
 
 Var is a valid reference type in Malli. To support auto-resolving Var references to Vars, `mr/var-registry` is needed. It is enabled by default.
 
-```clojure
+```clojure notest
 (def UserId :string)
 
 (def User
@@ -3256,7 +3256,7 @@ example project.
 
 Transforming Schemas into [DOT Language](https://en.wikipedia.org/wiki/DOT_(graph_description_language) ):
 
-```clojure
+```clojure notest
 (require '[malli.dot :as md])
 
 (def Address
