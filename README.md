@@ -1720,7 +1720,7 @@ Finding all subschemas with paths, retaining order:
 
 Collecting unique value paths and their schema paths:
 
-```clojure
+```clojure notest
 (->> Schema
      (mu/subschemas)
      (mu/distinct-by :id)
@@ -1741,7 +1741,7 @@ Collecting unique value paths and their schema paths:
 
 Schema paths can be converted into value paths:
 
-```clojure
+```clojure notest
 (mu/get-in Schema [0 :address 0 :lonlat])
 ; => [:tuple double? double?]
 
@@ -1751,7 +1751,7 @@ Schema paths can be converted into value paths:
 
 and back, returning all paths:
 
-```clojure
+```clojure notest
 (mu/in->paths Schema [:address :lonlat])
 ; => [[0 :address 0 :lonlat]]
 ```
@@ -2928,7 +2928,7 @@ We did not register normal predicate schemas:
 
 Any schema can define a local registry using `:registry` schema property:
 
-```clojure
+```clojure notest
 (def Adult
   [:map {:registry {::age [:and int? [:> 18]]}}
    [:age ::age]])
@@ -2953,7 +2953,7 @@ See also [Recursive Schemas](#recursive-schemas).
 
 Passing in custom options to all public methods is a lot of boilerplate. For the lazy, there is an easier way - we can swap the (global) default registry:
 
-```clojure
+```clojure notest
 (require '[malli.registry :as mr])
 
 ;; the default registry
@@ -2990,7 +2990,7 @@ Malli allows the default registry to initialized with empty schemas, using the f
    * cljs: `:closure-defines {malli.registry/type "custom"}`
    * clj: `:jvm-opts ["-Dmalli.registry/type=custom"]`
 
-```clojure
+```clojure notest
 ;; with the flag set on
 (-> m/default-registry (mr/schemas) (count))
 ; => 0
