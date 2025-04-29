@@ -1666,7 +1666,7 @@ Finding first value (prewalk):
 
 Finding all subschemas with paths, retaining order:
 
-```clojure
+```clojure notest
 (def Schema
   (m/schema
     [:maybe
@@ -3294,7 +3294,7 @@ Visualized with [Graphviz](https://graphviz.org/):
 
 Transforming Schemas into [PlantUML](https://plantuml.com/):
 
-```clojure
+```clojure notest
 (require '[malli.plantuml :as plantuml])
 
 (plantuml/transform Address)
