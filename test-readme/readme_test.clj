@@ -17,9 +17,9 @@
   @(var-get #'mr/registry*))
 
 (defn remove-leading-comment-chars [s]
-  (str/replace s #"(?m)^\w*;+" ""))
+  (str/replace s #"(?m)^\s*;+" ""))
 
-(def assertion-regex #";+\w*=>\w*")
+(def assertion-regex #"(?m);+\s*=>\s*")
 
 (defn executable-fragments [example]
   (if-not (re-find assertion-regex example)
