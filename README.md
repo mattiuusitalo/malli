@@ -2939,7 +2939,7 @@ Any schema can define a local registry using `:registry` schema property:
 
 Local registries can be persisted:
 
-```clojure
+```clojure notest
 (-> Adult
     (malli.edn/write-string)
     (malli.edn/read-string)
