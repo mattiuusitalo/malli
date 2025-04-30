@@ -526,7 +526,7 @@ and `:?`, `:*`, `:+` & `:repeat` for repetition:
 (m/explain
   [:* [:catn [:prop string?] [:val [:altn [:s string?] [:b boolean?]]]]]
   ["-server" "foo" "-verbose" 11 "-user" "joe"])
-;; => {:schema [:* [:map [:prop string?] [:val [:map [:s string?] [:b boolean?]]]]],
+;; => {:schema [:* [:catn [:prop string?] [:val [:altn [:s string?] [:b boolean?]]]]],
 ;;     :value ["-server" "foo" "-verbose" 11 "-user" "joe"],
 ;;     :errors ({:path [0 :val :s], :in [3], :schema string?, :value 11}
 ;;              {:path [0 :val :b], :in [3], :schema boolean?, :value 11})}
@@ -824,7 +824,9 @@ Or if you already have a malli validation exception (e.g. in a catch form):
   (m/assert Address {:not "an address"})
   (catch Exception e
     (-> e ex-data :data :explain me/humanize)))
-; => {:street ["missing required key"], :country ["missing required key"]}
+; => {:id ["missing required key"],
+;     :tags ["missing required key"],
+;     :address ["missing required key"]}
 ```
 
 ## Custom error messages
@@ -2334,7 +2336,7 @@ Sample-data can be type-hinted with `::mp/hint`:
   [^{::mp/hint :tuple}
    [1 "kikka" true]
    ["2" "kukka" true]])
-; => [:tuple :some string? boolean?]
+; => [:tuple :some :string boolean?]
 ```
 
 ### value decoding in inferring
@@ -3334,7 +3336,9 @@ As the namespace suggests, it's experimental, built for [reitit](https://github.
 ;      [:map
 ;       [:min-max [:int {:min 0, :max 10}]]
 ;       [:tuples [:vector [:tuple int? string?]]]
-;       [:optional {:optional true} [:maybe :boolean]]]]]
+;       [:optional {:optional true} [:maybe :boolean]]
+;       [:set-of-maps [:set [:map [:e int?] [:f string?]]]]
+;       [:map-of-int [:map-of int? [:map [:s string?]]]]]]]
 ```
 
 Options can be used by binding a dynamic `l/*options*` Var:
