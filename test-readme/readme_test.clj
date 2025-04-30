@@ -19,7 +19,7 @@
 (defn remove-leading-comment-chars [s]
   (str/replace s #"(?m)^\w*;+" ""))
 
-(def assertion-regex #";+ =>\w*")
+(def assertion-regex #";+\w*=>\w*")
 
 (defn executable-fragments [example]
   (if-not (re-find assertion-regex example)
