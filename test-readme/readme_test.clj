@@ -76,7 +76,7 @@
        (into {:total (count results)} (map (fn [[k v]] [k (count v)])))))
 
 (defn pprint-results [{:keys [total pass fail exception]}]
-  (format "Total: %d Pass: %d Fail: %d Exception: %d" total pass fail exception))
+  (format "Total: %d Pass: %d Fail: %d Exception: %d" total (or pass 0) (or fail 0) (or exception 0)))
 
 ; https://clojuredocs.org/clojure.core/*out*#example-6210625ce4b0b1e3652d75a9
 (def noop-writer
