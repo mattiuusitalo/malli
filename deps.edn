@@ -34,8 +34,7 @@
                       :main-opts ["-m" "cljs-test-runner.main" "-d" "test-sci" "-d" "test"]}
            :test-cherry {:extra-paths ["test-cherry"]
                          :main-opts ["-m" "cljs-test-runner.main" "-d" "test-cherry" "-d" "test"]}
-           :test-readme {:extra-paths ["test-readme"]
-                         :main-opts ["-m" "readme-test.main"]}
+           :test-readme {:extra-paths ["test-readme"]}
            :cljs-test-runner {:extra-deps {olical/cljs-test-runner {:mvn/version "3.8.1"}
                                         ; used only to pull in its externs file needed to compile js-joda types under advanced compilation
                                            com.widdindustries/cljs.java-time {:mvn/version "0.1.20"}}
