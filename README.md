@@ -1041,7 +1041,7 @@ Custom exception (with default layout):
 
 Pretty printing in being backed by `malli.dev.virhe/-format` multimethod using `(-> exception (ex-data) :data)` as the default dispatch key. As fallback, exception class - or exception subclass can be used, e.g. the following will handle all `java.sql.SQLException` and it's parent exceptions:
 
-```clojure
+```clojure notest
 (require '[malli.dev.virhe :as v])
 
 (defmethod v/-format java.sql.SQLException [e _ printer]
