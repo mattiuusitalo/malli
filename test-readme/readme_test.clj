@@ -47,28 +47,50 @@
 (defn canonicalize-expectation [clj-str]
   (read-string clj-str))
 
+(defn evaluate-setup-fragment [form]
+      (try {:pass? :pass :form form :result
           (->> form prepend-pre-exeution-setup load-string canonicalize-evaluation-results)}
+         (catch Throwable t
+           {:pass? :exception
+            :throwable t
+            :form form})))
+
+(defn evaluate-assertable-fragment [form expected]
+  (try
     (let [result (->> form prepend-pre-exeution-setup load-string canonicalize-evaluation-results)
           canonicalized-expected (canonicalize-expectation expected)
+          pass? (= result
+                   canonicalized-expected)]
+      {:pass? (if pass? :pass :fail)
+       :form form
+       :result result
+       :expected canonicalized-expected})
+    (catch Throwable t
+      {:pass? :exception
+       :throwable t
+       :form form})))
+
+(defn evaluate-fragment [{form :form expected :expected-result}]
+  (if-not expected
+    (evaluate-setup-fragment form)
+    (evaluate-assertable-fragment form expected)))
+
+(defn overall-result [fragment-results]
+  (let [result-classes (->> fragment-results
+                            (into #{} (map :pass?)))]
+    (cond
+      (contains? result-classes :exception) :exception
+      (contains? result-classes :fail) :fail
+      :else :pass)))
 
 (defn evaluate-example [example]
   (let [fragment-results
         (->> example
              executable-fragments
-             (map (fn [{form :form expected :expected-result}]
-                    (if-not expected
-                      {:pass? true
-                       :result (->> form load-string canonicalize)}
-                      (let [result (->> form load-string canonicalize)
-                            canonicalized-expected (canonicalize-str expected)
-                            pass? (= result
-                                     canonicalized-expected)]
-                        {:pass? pass?
-                         :result result
-                         :expected canonicalized-expected})))))]
-    {:overall-result (if (every? :pass? fragment-results) :pass :fail)
+             (map evaluate-fragment))]
+    {:overall-result (overall-result fragment-results)
+     :throwable (->> fragment-results (map :throwable) first)
      :fragment-results fragment-results}))
-
 
 (def examples
   (->> (re-seq #"(?ms)```clojure(?! notest).*?```" (slurp "README.md"))
@@ -108,27 +130,39 @@
                     (evaluate-example ex)
                     (catch Throwable t
                       {:overall-result :exception
-                       :exception t}))]]
+                       :throwable t}))]]
         {:tc i
          :example ex
          :overall-result (:overall-result test-results)
-         :exception (:exception test-results)
+         :throwable (:throwable test-results)
          :result test-results})))))
+
+(defn report-throwing-fragment [{:keys [throwable result overall-result] :as all}]
+  (when (= :exception overall-result)
+    (str
+     "Offending fragment: \n"
+     (->> result
+          :fragment-results
+          (filter #(= :exception (:pass? %)))
+          first
+          :form)
+     "\n"
+     (with-out-str (clojure.stacktrace/print-stack-trace throwable)))))
 
 (defn test-report [test-results]
   (->> test-results
-       (remove (comp (partial = :pass) :overall-result))
-       (map (fn [{i :tc :keys [example overall-result result exception]}]
+       #_(remove (comp (partial = :pass) :overall-result))
+       (map (fn [{i :tc :keys [example overall-result result] :as all}]
               (str
                (format "-------------------------\nTEST: %d RESULT: %s\n%s\n---------------------------"
                        i overall-result example)
                "\n"
-               (when (= :exception overall-result)
-                 (with-out-str (clojure.stacktrace/print-stack-trace exception)))
+               (report-throwing-fragment all)
                "\n"
                (str/join "\n"
-                         (map (fn [{:keys [pass? result expected]}]
+                         (map (fn [{:keys [pass? form result expected]}]
                                 (str "Fragment result: " pass?
+                                     "\nForm \n" form
                                      "\nExpected:\n" (pprint-str expected)
                                      "\n\nActual:\n" (pprint-str result)))
                               (:fragment-results result))))))
