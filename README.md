@@ -2414,22 +2414,18 @@ A more complete example:
             [h] :h
             :or {d 0}
             :as opts}])
+
 ; => [:cat
 ;     :any
-;     [:maybe [:cat
-;              [:? :any]
-;              [:? :any]
-;              [:* :any]]]
-;     [:altn
+;     [:maybe [:cat [:? :any] [:? :any] [:* :any]]]
+;     [:orn
 ;      [:map
 ;       [:map
 ;        [:d {:optional true} :any]
 ;        [:e {:optional true} :any]
 ;        [:demo/f {:optional true}]
 ;        [:demo/g {:optional true}]
-;        [:h {:optional true} [:maybe [:cat
-;                                      [:? :any]
-;                                      [:* :any]]]]]]
+;        [:h {:optional true} [:maybe [:cat [:? :any] [:* :any]]]]]]
 ;      [:args
 ;       [:*
 ;        [:alt
@@ -2437,10 +2433,8 @@ A more complete example:
 ;         [:cat [:= :e] :any]
 ;         [:cat [:= :demo/f] :demo/f]
 ;         [:cat [:= :demo/g] :demo/g]
-;         [:cat [:= :h] [:maybe [:cat
-;                                [:? :any]
-;                                [:* :any]]]]
-;         [:cat :any :any]]]]]]
+;         [:cat [:= :h] [:maybe [:cat [:? :any] [:* :any]]]]
+;         [:cat [:not [:enum :d :e :demo/f :demo/g :h]] :any]]]]]]
 ```
 
 ## Parsing values
