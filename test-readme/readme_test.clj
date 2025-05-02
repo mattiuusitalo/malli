@@ -33,9 +33,8 @@
       (str/split s assertion-regex)
       (partition 2 1 s)
       (map-indexed (fn [i [form expected]]
-                     {:form (str "(in-ns 'readme-test) (mr/set-default-registry! default-registry)\n"
-                                 (if (zero? i) form
-                                     (second (str/split form #"\n\n" 2))))
+                     {:form (if (zero? i) form
+                                (second (str/split form #"\n+" 2)))
                       :expected-result
                       (-> (str/split expected #"\n\n") first str/trim remove-leading-comment-chars)}) s))))
 
