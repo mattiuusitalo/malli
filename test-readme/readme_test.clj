@@ -32,11 +32,12 @@
     (as-> example s
       (str/split s assertion-regex)
       (partition 2 1 s)
-      (map-indexed (fn [i [form expected]]
-                     {:form (if (zero? i) form
-                                (second (str/split form #"\n+" 2)))
-                      :expected-result
-                      (-> (str/split expected #"\n\n") first str/trim remove-leading-comment-chars)}) s))))
+      (map-indexed
+       (fn [i [form expected]]
+         {:form (if (zero? i) form
+                    (second (str/split form #"\n+" 2)))
+          :expected-result
+          (-> (str/split expected #"\n\n") first str/trim remove-leading-comment-chars)}) s))))
 
 (defn canonicalize-evaluation-results [clj-data]
   (->> clj-data
@@ -47,17 +48,23 @@
 (defn canonicalize-expectation [clj-str]
   (read-string clj-str))
 
+(defn canonically-evaluate [form]
+  (->> form prepend-pre-exeution-setup load-string canonicalize-evaluation-results))
+
+(defn collect-exception [t form]
+  {:pass? :exception
+   :throwable t
+   :form form})
+
 (defn evaluate-setup-fragment [form]
-      (try {:pass? :pass :form form :result
-          (->> form prepend-pre-exeution-setup load-string canonicalize-evaluation-results)}
-         (catch Throwable t
-           {:pass? :exception
-            :throwable t
-            :form form})))
+  (try {:pass? :pass :form form :result
+        (canonically-evaluate form)}
+       (catch Throwable t
+         (collect-exception t form))))
 
 (defn evaluate-assertable-fragment [form expected]
   (try
-    (let [result (->> form prepend-pre-exeution-setup load-string canonicalize-evaluation-results)
+    (let [result (canonically-evaluate form)
           canonicalized-expected (canonicalize-expectation expected)
           pass? (= result
                    canonicalized-expected)]
@@ -66,9 +73,7 @@
        :result result
        :expected canonicalized-expected})
     (catch Throwable t
-      {:pass? :exception
-       :throwable t
-       :form form})))
+      (collect-exception t form))))
 
 (defn evaluate-fragment [{form :form expected :expected-result}]
   (if-not expected
