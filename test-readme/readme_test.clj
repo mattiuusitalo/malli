@@ -20,6 +20,11 @@
   (str/replace s #"(?m)^\s*;+" ""))
 
 (def assertion-regex #"(?m);+\s*=>\s*")
+(def pre-execution-setup "(in-ns 'readme-test)
+(mr/set-default-registry! default-registry)\n")
+
+(defn prepend-pre-exeution-setup [s]
+  (str pre-execution-setup s))
 
 (defn executable-fragments [example]
   (if-not (re-find assertion-regex example)
@@ -34,16 +39,18 @@
                       :expected-result
                       (-> (str/split expected #"\n\n") first str/trim remove-leading-comment-chars)}) s))))
 
-(defn canonicalize [clj-data]
+(defn canonicalize-evaluation-results [clj-data]
   (->> clj-data
        pr-str
        (str "'")
        load-string))
 
-(defn canonicalize-str [clj-str]
-  (->> clj-str
-       (str "'")
-       load-string))
+(defn canonicalize-expectation [clj-str]
+  (read-string clj-str))
+
+          (->> form prepend-pre-exeution-setup load-string canonicalize-evaluation-results)}
+    (let [result (->> form prepend-pre-exeution-setup load-string canonicalize-evaluation-results)
+          canonicalized-expected (canonicalize-expectation expected)
 
 (defn evaluate-example [example]
   (let [fragment-results
