@@ -63,6 +63,8 @@
                               :additionalItems false}]
    [[:re "^[a-z]+\\.[a-z]+$"] {:type "string", :pattern "^[a-z]+\\.[a-z]+$"}]
    [:any {}]
+   [:any true :one-way true]
+   ;; TODO false should produce an always failing schema
    [:nil {:type "null"}]
    [[:string {:min 1, :max 4}] {:type "string", :minLength 1, :maxLength 4}]
    [[:and :int [:<= 4] [:>= 1]] {:type "integer", :minimum 1, :maximum 4} :one-way true]
