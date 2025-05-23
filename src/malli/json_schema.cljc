@@ -1,5 +1,6 @@
 (ns malli.json-schema
   (:require [clojure.set :as set]
+            [clojure.string :as str]
             [malli.core :as m]))
 
 (declare -transform)
@@ -7,24 +8,33 @@
 (defprotocol JsonSchema
   (-accept [this children options] "transforms schema to JSON Schema"))
 
-(defn -ref [x] {:$ref (apply str "#/definitions/"
-                             (cond
-                               ;; / must be encoded as ~1 in JSON Schema
-                               ;; https://json-schema.org/draft/2019-09/relative-json-pointer.html
-                               ;; https://www.rfc-editor.org/rfc/rfc6901
-                               (qualified-keyword? x) [(namespace x) "~1"
-                                                       (name x)]
-                               (keyword? x) [(name x)]
-                               :else [x]))})
+(defn -join-ref [prefix suffix]
+  ;; kludge to make :foo.bar/quux and :foo/bar.quux not collide
+  (str prefix
+       (if (str/includes? (str suffix) ".") ".." ".")
+       suffix))
 
-(defn -schema [schema {::keys [transform definitions] :as options}]
-  (let [result (transform (m/deref schema) options)]
-    (if-let [ref (m/-ref schema)]
-      (let [ref* (-ref ref)]
-        (when-not (= ref* result) ; don't create circular definitions
-          (swap! definitions assoc ref result))
-        ref*)
-      result)))
+(defn -ref [schema {::keys [transform definitions definitions-path]
+                    :or {definitions-path "#/definitions/"}
+                    :as options}]
+  (let [ref (as-> (m/-ref schema) $
+              (cond (var? $) (let [{:keys [ns name]} (meta $)]
+                               (-join-ref ns name))
+                    (qualified-ident? $) (-join-ref (namespace $) (name $))
+                    :else (str $)))]
+    (when-not (contains? @definitions ref)
+      (let [child (m/deref schema)]
+        (swap! definitions assoc ref ::recursion-stopper)
+        (swap! definitions assoc ref (transform child options))))
+    ;; '/' must be encoded as '~1' in JSON Schema - https://www.rfc-editor.org/rfc/rfc6901
+    ;; However, tools like openapi-schema-validator disallow ~1, so we use "." as the separator above.
+    ;; This str/replace is left here in case a user has managed to smuggle a "/" in to the type name.
+    {:$ref (apply str definitions-path (str/replace ref #"/" "~1"))}))
+
+(defn -schema [schema {::keys [transform] :as options}]
+  (if (m/-ref schema)
+    (-ref schema options)
+    (transform (m/deref schema) options)))
 
 (defn select [m] (select-keys m [:title :description :default]))
 
@@ -41,6 +51,7 @@
 (defmethod accept 'nat-int? [_ _ _ _] {:type "integer", :minimum 0})
 (defmethod accept 'float? [_ _ _ _] {:type "number"})
 (defmethod accept 'double? [_ _ _ _] {:type "number"})
+(defmethod accept 'float? [_ _ _ _] {:type "number"})
 (defmethod accept 'pos? [_ _ _ _] {:type "number" :exclusiveMinimum 0})
 (defmethod accept 'neg? [_ _ _ _] {:type "number" :exclusiveMaximum 0})
 (defmethod accept 'boolean? [_ _ _ _] {:type "boolean"})
@@ -147,7 +158,7 @@
 
 (defmethod accept :enum [_ _ children options] (merge (some-> (m/-infer children) (-transform options)) {:enum children}))
 (defmethod accept :maybe [_ _ children _] {:oneOf (conj children {:type "null"})})
-(defmethod accept :tuple [_ _ children _] {:type "array", :items children, :additionalItems false})
+(defmethod accept :tuple [_ _ children _] {:type "array", :prefixItems children, :items false})
 (defmethod accept :re [_ schema _ options] {:type "string", :pattern (first (m/children schema options))})
 (defmethod accept :fn [_ _ _ _] {})
 
@@ -160,6 +171,10 @@
 
 (defmethod accept :int [_ schema _ _]
   (merge {:type "integer"} (-> schema m/properties (select-keys [:min :max]) (set/rename-keys {:min :minimum, :max :maximum}))))
+
+(defmethod accept :float [_ schema _ _]
+  (merge {:type "number"}
+         (-> schema m/properties (select-keys [:min :max]) (set/rename-keys {:min :minimum, :max :maximum}))))
 
 (defmethod accept :double [_ schema _ _]
   (merge {:type "number"}
@@ -174,7 +189,7 @@
 
 (defmethod accept :=> [_ _ _ _] {})
 (defmethod accept :function [_ _ _ _] {})
-(defmethod accept :ref [_ schema _ _] (-ref (m/-ref schema)))
+(defmethod accept :ref [_ schema _ options] (-ref schema options))
 (defmethod accept :schema [_ schema _ options] (-schema schema options))
 (defmethod accept ::m/schema [_ schema _ options] (-schema schema options))
 

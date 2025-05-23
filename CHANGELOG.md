@@ -14,6 +14,202 @@ We use [Break Versioning][breakver]. The version numbers follow a `<major>.<mino
 
 Malli is in well matured [alpha](README.md#alpha).
 
+## UNRELEASED
+
+* **BREAKING** FIX: `json-transformer` is now better at inferring en/decoders for `:enum` and `:=`. [#1205](https://github.com/metosin/malli/pull/1205)
+  * For example `[:enum 1 2 3]` gets encoded as a JSON number, not a string.
+  * If you need the old behaviour, you can override the en/decoders using properties. [See docs.](README.md#advanced-transformations)
+* Value generation: `:+` and `:*` now support generator directives `:gen/min`, `:gen/max` as well as `:min` and `:max` schema directives [#1208](https://github.com/metosin/malli/pull/1208)
+* FIX: `:default/fn` now works in map entry properties in addition to schema properties [#1209](https://github.com/metosin/malli/pull/1209)
+
+## 0.18.0 (2025-05-12)
+
+* **BREAKING** Output of `parse` now uses new `malli.core.Tag` and `malli.core.Tags` records for `:orn`, `:multi`, `:altn`, `:catn` etc. [#1123](https://github.com/metosin/malli/issues/1123) [#1153](https://github.com/metosin/malli/issues/1153)
+  * See [Parsing](#parsing-values) and [Unparsing](#unparsing-values) for docs.
+* **BREAKING** Swagger and JSON-Schema outputs now use `.` instead of `/` (encoded as `~1`) as the separator. [#1183](https://github.com/metosin/malli/pull/1183)
+  * This will only affect you if you rely on the exact name of the schema
+* Docs: elaborate optional-keys and required-keys [#1117](https://github.com/metosin/malli/pull/1117)
+* JSON Schema for `:tuple` now uses `"prefixItems"` [#1151](https://github.com/metosin/malli/pull/1151)
+* FIX: `:path` when explaining `:ref` errors [#1106](https://github.com/metosin/malli/issues/1106)
+* FIX: don't instrument functions with primitive type hints (like `^double`), instead, emit a warning [#1176](https://github.com/metosin/malli/pull/1176)
+* FIX: `:map-of` and `:map` decode now retain the input map type (eg. `sorted-map`) [#1189](https://github.com/metosin/malli/pull/1189)
+* FIX: schemas and into-schemas are printed to the console and the REPL in CLJS the same way as they are in CLJ. [#1186](https://github.com/metosin/malli/issues/1186)
+* FIX: `:merge` and `:union` now work with 1 child. With no children, throw a clearer error. [#1147](https://github.com/metosin/malli/pull/1147)
+* FIX: `default-value-transformer` for `:ref`s inside `:map`s [#1145](https://github.com/metosin/malli/issues/1145)
+* FIX: generator for `empty?` schema [#1196](https://github.com/metosin/malli/pull/1196)
+
+## 0.17.0 (2024-12-08)
+
+* Don't output `:definitions nil` in swagger. [#1134](https://github.com/metosin/malli/issues/1134)
+* **BREAKING**: `:gen/fmap` property requires its schema to create a generator.
+  * previous behavior defaulted to a `nil`-returning generator, even if the schema doesn't accept `nil`
+  * use `:gen/return nil` property to restore this behavior
+* Support decoding map keys into keywords for `[:map` schemas in `json-transformer` [#1135](https://github.com/metosin/malli/issues/1135)
+* `:not` humanizer [#1138](https://github.com/metosin/malli/pull/1138)
+* FIX: `:seqable` generates `nil` when `:min` is greater than 0 [#1121](https://github.com/metosin/malli/issues/1121)
+* FIX: `malli.registry/{mode,type}` not respected in Babashka [#1124](https://github.com/metosin/malli/issues/1124)
+* FIX: `:float` accepts doubles but never generates them [#1132](https://github.com/metosin/malli/issues/1132)
+* FIX: `:float` missing humanizer [#1122](https://github.com/metosin/malli/issues/1122)
+* Updated dependencies:
+
+```
+fipp/fipp '0.6.26' to '0.6.27'
+```
+
+## 0.16.4 (2024-08-30)
+
+* Distribute `:merge` over `:multi` [#1086](https://github.com/metosin/malli/pull/1086), see [documentation](README.md#distributive-schemas)
+* `:multi` with keyword `:dispatch` accumulates data to generated values [#1095](https://github.com/metosin/malli/pull/1095)
+* Allow `m/-proxy-schema` child to be a `delay` [#1090](https://github.com/metosin/malli/pull/1090)
+* `json-transformer` decodes 123.0 into 123 for schemas like `:int`, `pos-int?` etc. [#986](https://github.com/metosin/malli/issues/986)
+* Fix `malli.dev.pretty` throws when explaining errors in nested maps [#1094](https://github.com/metosin/malli/issues/1096)
+* Fix ClojureScript [arithmetic warning](https://github.com/metosin/malli/issues/1093)
+* Fix `(-some-pred [])` should return `false` [#1101](https://github.com/metosin/malli/pull/1101)
+* Doc `mu/assoc` and `mu/dissoc` only handle one key at a time [#1099](https://github.com/metosin/malli/pull/1099)
+* Try to make `map-of-min-max-test` less flaky by fixing seed [#1098](https://github.com/metosin/malli/pull/1098)
+* Updated dependencies:
+
+```
+borkdude/edamame '1.4.25' to '1.4.27'
+```
+
+## 0.16.3 (2024-08-05)
+
+* `:->` added to default registry, see [documentation](/docs/function-schemas.md#flat-arrow-function-schemas).
+* New `:seqable` and `:every` schemas [#1041](https://github.com/metosin/malli/pull/1041), see [docs](https://github.com/metosin/malli#seqable-schemas)
+* Fix OOM error with infinitely expanding schema [#1069](https://github.com/metosin/malli/pull/1069)
+* Correctly form prop-less schemas that have map/nil as first child [#1071](https://github.com/metosin/malli/pull/1071)
+* Support min/max on uncountables like eductions [#1075](https://github.com/metosin/malli/pull/1075)
+* Fix clj-kondo can't parse config.edn written by `(malli.dev/start!)` [#1083](https://github.com/metosin/malli/issues/1083)
+* unstrument before instrumenting [#1081](https://github.com/metosin/malli/pull/1081)
+* Replace `.entryAt` with `.valAt` during validation [#1079](https://github.com/metosin/malli/pull/1079)
+* Corrected DEPRECATED warning for `m/-simple-schema` [#1077](https://github.com/metosin/malli/pull/1077)
+
+## 0.16.2 (2024-06-30)
+
+* Experimental `:->` for simpler function defintions (not available on default schema registry) [#1027](https://github.com/metosin/malli/pull/1027)
+
+```clojure
+[:-> :any] ; [:=> :cat :any]
+[:-> :int :any] ; [:=> [:cat :int] :any]
+[:-> [:cat :int] :any]  ; [:=> [:cat [:cat :int]] :any]
+[:-> a b c d :any] ; [:=> [:cat a b c d] :any]
+
+;; guard property
+[:-> {:guard (fn [[[arg] ret]] ...)} :string :boolean]
+; [:=> [:cat :string] :boolean [:fn (fn [[[arg] ret]] ...)]]
+```
+
+* Fix `mu/get-in` for false-y keys [#1065](https://github.com/metosin/malli/pull/1065)
+* Add `:float` [#1055](https://github.com/metosin/malli/pull/1055)
+* Make clj-kondo dir configurable [#1062](https://github.com/metosin/malli/pull/1062)
+* Improve doc for transformers [#1058](https://github.com/metosin/malli/pull/1058)
+* `:double` generates Long if `:`min is Long [#1034](https://github.com/metosin/malli/issues/1034)
+* Fix Swagger definitions collecting [#1002](https://github.com/metosin/malli/issues/1002)
+
+## 0.16.1 (2024-04-30)
+
+* Enabled Java8 tests back, no need to limit the version.
+
+## 0.16.0 (2024-04-20)
+
+* **BREAKING**: minimum Java-version is now Java11
+* allow changing prefix of json-schema $refs via option `:malli.json-schema/definitions-path` [#1045](https://github.com/metosin/malli/pull/1045)
+* Inline refs in non-`:body` swagger parameters [#1044](https://github.com/metosin/malli/pull/1044)
+* Fix flaky test [#1040](https://github.com/metosin/malli/pull/1040)
+* Utility to update entry properties: `mu/update-entry-properties` [#1037](https://github.com/metosin/malli/pull/1037)
+* Fix actions cache [#1036](https://github.com/metosin/malli/pull/1036)
+* Only humanize one of `:min` / `:max` when different [#1032](https://github.com/metosin/malli/pull/1032)
+* Distinguish between symbols and strings in humanize [#1031](https://github.com/metosin/malli/pull/1031)
+* Fix `:map-of` `:min` and unreachable generator, explain such-that failures [#1029](https://github.com/metosin/malli/pull/1029)
+
+## 0.15.0 (2024-03-23)
+
+* `:=>` takes optional 3rd child, the guard schema validating vector of arguments and return value `[args ret]`. See [Function Guards](docs/function-schemas.md#function-guards) for more details. Fixes [#764](https://github.com/metosin/malli/issues/764) and [#764](https://github.com/metosin/malli/issues/764).
+
+```clojure
+;; function of arg:int -> ret:int, where arg < ret
+[:=>
+ [:cat :int]
+ :int
+ [:fn (fn [[[arg] ret]] (< arg ret))]]
+```
+
+* **BREAKING**: `malli.generator/function-checker` returns explanations under new keys:
+  * `::mg/explain-input` -> `::m/explain-input`
+  * `::mg/explain-output` -> `::m/explain-output`
+  * new `::m/explain-guard` to return guard explanation, if any
+* `m/explain` for `:=>` returns also errors for args, return and guard if they exist
+* FIX `m/deref-recursive` doesn't play nice with `:merge` schema [#997](https://github.com/metosin/malli/issues/997) via [#999](https://github.com/metosin/malli/pull/999)
+* FIX nested `:repeat` sequence schema's doesn't seem to work [#761](https://github.com/metosin/malli/issues/761) via [#1024](https://github.com/metosin/malli/pull/1024)
+* FIX Invalid Swagger JSON with `[:or :nil]` alternatives [#1006](https://github.com/metosin/malli/issues/1006) via [#1023](https://github.com/metosin/malli/pull/1023)
+* FIX `(explain :tuple [])` [#1022](https://github.com/metosin/malli/pull/1022)
+* Enforce entry specs in open map destructurings [#1021](https://github.com/metosin/malli/pull/1021)
+* FIX `goog/mixin` was deprecated and is now removed [#1016](https://github.com/metosin/malli/pull/1016)
+
+* Updated dependencies:
+
+```clojure
+borkdude/edamame 1.3.23 -> 1.4.25
+```
+
+## 0.14.0 (2024-01-16)
+
+* Better development-time tooling
+  * `malli.dev/start!` captures all malli-thrown exceptions, see [README](README.md#development-mode) for details
+  * does not log individual re-instrumentation of function vars
+  * **BREAKING**: changes in `malli.dev.virhe` and `malli.pretty` extension apis, wee [#980](https://github.com/metosin/malli/pull/980) for details
+* New `m/deref-recursive` to recursive deref all schemas (not `:ref`s)
+* FIX: Malli generates incorrect clj-kondo spec for :fn schemas [#836](https://github.com/metosin/malli/issues/836) via [#987](https://github.com/metosin/malli/pull/987)
+* Support for Var references [#985](https://github.com/metosin/malli/pull/985), see [guide](README.md#var-registry) for details.
+* **BREAKING**: `m/coerce` and `m/coercer` throw `::m/coercion` instead of `::m/invalid-input`
+* New Guide for [Reusable Schemas](docs/reusable-schemas.md)
+* Less printing of Var instumentation
+* **BREAKING**: qualified symbols are valid reference types [#984](https://github.com/metosin/malli/pull/984)
+* Fixing `mt/strip-extra-keys-transformer` for recursive map encoding [#963](https://github.com/metosin/malli/pull/963)
+* Support passing custom `:type` in into-schema opt for `:map` and `:map-of` [#968](https://github.com/metosin/malli/pull/968)
+* `mu/path->in` works with `:orn`, `:catn` and `:altn`.
+
+## 0.13.0 (2023-09-24)
+
+* **BREAKING** Fallback to use result of first branch when decoding `:or` and `:orn`, [#946](https://github.com/metosin/malli/pull/946)
+* **BREAKING**: `decode` for `:double` and `double?` in cljs doesn't allow trailing garbage any more [#942](https://github.com/metosin/malli/pull/942)
+* Faster generators for `:map`, [#948](https://github.com/metosin/malli/pull/948) & [#949](https://github.com/metosin/malli/pull/949)
+* FIX: `:altn` can't handle just one child entry when nested in sequence schema [#945](https://github.com/metosin/malli/pull/945)
+* Officially drop Clojure 1.10 support. Tests haven't passed for some time with Clojure 1.10, but this was not noticed due to a faulty CI setup.
+* Use type inferrer when encoding enums [#951](https://github.com/metosin/malli/pull/951)
+* Use `bound-fn` in `malli.dev/start!` to preserve `*out*` [#954](https://github.com/metosin/malli/pull/954)
+* FIX: Malli generates invalid clj-kondo type spec for [:map [:keys [:+ :keyword]]] [#952](https://github.com/metosin/malli/pull/952)
+* FIX: `malli.experimental.describe` descriptions of `:min` and `:max` are backwards [#959](https://github.com/metosin/malli/pull/959)
+* FIX: Malli tuple should generate clj-kondo seqable [#962](https://github.com/metosin/malli/pull/962)
+
+## 0.12.0 (2023-08-31)
+
+* FIX: retain order with `:catn` unparse, fixes [#925](https://github.com/metosin/malli/issues/925)
+* **BREAKING**: Do not require timezone data directly for cljs [#898](https://github.com/metosin/malli/pull/898) with `malli.experimental.time`
+* Remove non-root swagger definitions [#900](https://github.com/metosin/malli/pull/900)
+* FIX: `malli.core/-comp` keeps interceptor order with long chains [#905](https://github.com/metosin/malli/pull/905)
+* FIX: `malli.dev/start!` exception does not contain source [#896](https://github.com/metosin/malli/issues/896)
+* FIX: don't add extra :schema nil to swagger :parameters [#939](https://github.com/metosin/malli/pull/939)
+* Add `:gen/return` support in malli.generator [#933](https://github.com/metosin/malli/pull/933)
+* Make uuid transformer to be case insensitive [#929](https://github.com/metosin/malli/pull/929)
+* Add `:default/fn` prop for default-value-transformer [#927](https://github.com/metosin/malli/pull/927)
+* Updated dependencies:
+
+```clojure
+borkdude/edamame 1.3.20 -> 1.3.23
+```
+
+## 0.11.0 (2023-04-12)
+
+* BREAKING: remove map syntax: `mu/from-map-syntax`, `mu/to-map-syntax`. Note that AST syntax and lite syntax remain unchanged.
+* BREAKING: walking a `:schema` with an `id` no longer passes `[id]` instead of `children` to the walker function [#884](https://github.com/metosin/malli/issues/884)
+* Support converting recursive malli schemas to json-schema [#464](https://github.com/metosin/malli/issues/464) [#868](https://github.com/metosin/malli/issues/868)
+* Add cherry as alternative CLJS evaluator [#888](https://github.com/metosin/malli/pull/888)
+* Replace `goog/mixin` with `Object.assign` [#890](https://github.com/metosin/malli/pull/890)
+* Simplify uuid regex for accept non-standard and zero uuids [#889](https://github.com/metosin/malli/pull/889)
+* Fix clj-doc API import [#887](https://github.com/metosin/malli/pull/887)
+
 ## 0.10.4 (2023-03-19)
 
 * FIX `malli.swagger` ns, broken test on reitit.
@@ -41,6 +237,16 @@ Malli is in well matured [alpha](README.md#alpha).
  {1 1, 2 "2", "3" 3, "4" "4"}
  (mt/strip-extra-keys-transformer))
 ; => {1 1}
+```
+
+* **BREAKING** (post-note 16.8.2023, this should have been a MINOR version bump). `mt/strip-extra-keys-transformer` strips non-defined keys of implicitely open `:map`:
+
+```clojure
+(m/decode
+ [:map [:x :int]]
+ {:x 1, :y 2, :z 3}
+ (mt/strip-extra-keys-transformer))
+; => {:x 1}
 ```
 
 * `m/default-schema` to pull the `::m/default` schema from entry schemas
@@ -78,7 +284,7 @@ borkdude/edamame 1.0.0 -> 1.1.17
 
 ## 0.10.0 (2023-01-12)
 
-* New optional time-schemas for the JVM on top of `java.time`: 
+* New optional time-schemas for the JVM on top of `java.time`:
   * `:time/duration`, `:time/instant`, `:time/local-date`, `:time/local-date-time`, `:time/local-time`, `:time/offset-date-time`, `:time/offset-time`, `:time/zone-id`, `:time/zone-offset`, `:time/zoned-date-time`, see [README](README.md#malliexperimentaltime)
 * automatic type inferring with `:enum` and `:=` with `malli.transform` and `malli.json-schema` - detects homogenous `:string`, `:keyword`, `:symbol`, `:int` and `:double`), [#782](https://github.com/metosin/malli/pull/782) & [#784](https://github.com/metosin/malli/pull/784)
 * New `malli.core/coercer` and `malli.core/coerce` to both decode and validate a value, see [Docs](README.md#coercion)
@@ -208,8 +414,8 @@ borkdude/edamame 0.0.18 -> 1.0.0
  :address {:street string?
            :city string?
            :zip (l/optional int?)
-           :lonlat [:tuple double? double?]}} 
-```           
+           :lonlat [:tuple double? double?]}}
+```
 
 * updated deps:
 
@@ -266,7 +472,7 @@ borkdude/edamame 0.0.18 -> 0.0.19
 
 * `malli.dev.pretty/explain` for pretty-printing explanations
 
-<img src="https://github.com/metosin/malli/blob/master/docs/img/pretty-explain.png" width=800>
+<img src="docs/img/pretty-explain.png" width=800>
 
 * updated dependencies:
 
@@ -283,7 +489,7 @@ fipp/fipp 0.6.24 -> 0.6.25
 ```clojure
 mvxcvi/arrangement 1.2.0 -> 2.0.0
 borkdude/edamame 0.0.11 -> 0.0.18
-org.clojure/test.check 1.1.0 -> 1.1.1 
+org.clojure/test.check 1.1.0 -> 1.1.1
 ```
 
 ## 0.7.4 (2021-12-18)
@@ -434,7 +640,7 @@ New optimized map-syntax to super-fast schema creation, see [README](README.md#m
 ;            :value {:type :map,
 ;                    :keys {:x {:order 0
 ;                               :value {:type boolean?}},
-;                           :y {:order 1 
+;                           :y {:order 1
 ;                               :value {:type int?}
 ;                               :properties {:optional true}}}}}}}
 
@@ -464,14 +670,14 @@ No need to play with Compiler options or JVM properties to swap the default regi
 
 ;; look ma, just works
 (mr/set-default-registry!
-  (mr/composite-registry
-    (m/default-schemas)
-    (mu/schemas)))
+ (mr/composite-registry
+  (m/default-schemas)
+  (mu/schemas)))
 
 (mg/generate
-  [:merge
-   [:map [:x :int]]
-   [:map [:y :int]]])
+ [:merge
+  [:map [:x :int]]
+  [:map [:y :int]]])
 ; => {:x 0, :y 92}
 ```
 
@@ -514,7 +720,7 @@ No need to play with Compiler options or JVM properties to swap the default regi
 ;; 164ns -> 28ns
 (let [valid? (m/validator [:and [:> 0] [:> 1] [:> 2] [:> 3] [:> 4]])]
   (cc/quick-bench (valid? 5)))
-  
+
 ;; 150ns -> 30ns
 (let [valid? (m/validator [:map [:a :any] [:b :any] [:c :any] [:d :any] [:e :any]])
       value {:a 1, :b 2, :c 3, :d 4, :e 5}]
@@ -537,7 +743,7 @@ No need to play with Compiler options or JVM properties to swap the default regi
             :type "food"
             :address {:street "hämeenkatu 14"
                       :lonlat [61 23.7644223]}}]
-                      
+
   ;; 920ns => 160ns
   (cc/quick-bench
     (decode json)))
@@ -559,7 +765,7 @@ No need to play with Compiler options or JVM properties to swap the default regi
 * Collection Schemas emit correct JSON Schema min & max declarations
 * humanized errors for `:boolean` & `:malli.core/tuple-limit`
 * predicate schema for `fn?`
-* `malli.util/transform-entries` passes in options [#340]/(https://github.com/metosin/malli/pull/340)  
+* `malli.util/transform-entries` passes in options [#340]/(https://github.com/metosin/malli/pull/340)
 * BETA: humanized errors can be read from parent schemas (also from map entries), fixes [#86](https://github.com/metosin/malli/issues/86):
 
 ```clojure
@@ -572,7 +778,8 @@ No need to play with Compiler options or JVM properties to swap the default regi
 
 * New experimental pretty printer for schema errors, using [fipp](https://github.com/brandonbloom/fipp).
 
-<img src="https://github.com/metosin/malli/blob/master/docs/img/defn-schema.png">
+    ![](/docs/img/defn-schema.png)
+
 
 ### Extender API
 
@@ -647,7 +854,7 @@ No need to play with Compiler options or JVM properties to swap the default regi
 * FIX: Schema vizualization is not working for `[:< ...]` like schemas, [#370](https://github.com/metosin/malli/issues/370)
 * Ensure we use size 30 for generator (for more variety), [#364](https://github.com/metosin/malli/pull/364)
 * Set JSON Schema types and formats for numbers properly [#354](https://github.com/metosin/malli/pull/354)
-* -memoize actually memoized. easily 100x faster now [#350](https://github.com/metosin/malli/pull/350)  
+* -memoize actually memoized. easily 100x faster now [#350](https://github.com/metosin/malli/pull/350)
 * Fix interceptor composition, [#347](https://github.com/metosin/malli/pull/350)
 * `malli.util`: add a rename-keys utility, similar to clojure.set [#338](https://github.com/metosin/malli/pull/338)
 * Let `mu/update` accept plain data schemas, [#329](https://github.com/metosin/malli/pull/329)
@@ -659,7 +866,7 @@ No need to play with Compiler options or JVM properties to swap the default regi
 * **BREAKING**: `m/-coder` and `m/-chain` are replaced wih `m/-intercepting`
 * **BREAKING**: `m/-fail!` is now `miu/-fail!`
 * **BREAKING**: `m/-error` is now `miu/-error`
-  
+
 ## 0.2.1 (2020-10-22)
 
 * fix `:sequential` decoding with empty sequence under `mt/json-transformer`, fixes [#288](https://github.com/metosin/malli/issues/288)
@@ -699,8 +906,8 @@ Merged
 ; [:map [:y :int]]]
 
 (m/deref Merged)
-;[:map 
-; [:x :string] 
+;[:map
+; [:x :string]
 ; [:y :int]]
 
 (m/validate Merged {:x "kikka", :y 6})
@@ -743,7 +950,7 @@ First stable release.
   * new mandatory Protocol method in `m/Schema`: `-type-properties`
 * 1.9.2020
   * `m/children` returns 3-tuple (key, properties, schema) for `MapSchema`s
-  * `m/map-entries` is removed, `m/entries` returns a `MapEntry` of key & `m/-val-schema`  
+  * `m/map-entries` is removed, `m/entries` returns a `MapEntry` of key & `m/-val-schema`
 * 4.8.2020
   * `:path` in explain is re-implemented: map keys by value, others by child index
   * `m/-walk` and `m/Walker` uses `:path`, not `:in`
@@ -760,7 +967,7 @@ First stable release.
 * 18.7.2020
   * big cleanup of `malli.transform` internals.
 * 12.7.2020
-  * `malli.mermaid` is removed (in favor of `malli.dot`)  
+  * `malli.mermaid` is removed (in favor of `malli.dot`)
 * 10.7.2020
   * `[metosin/malli "0.0.1-20200710.075225-19"]`
   * Visitor is implemented using a Walker.
@@ -771,6 +978,6 @@ First stable release.
   * new `-children` method in `Schema`, to return child schemas as instances (instead of just AST)
 * 17.6.2020
   * change all `malli.core/*-registry` defs into `malli.core/*-schemas` defns to enable DCE for clojurescript
-* 9.6.2020 
+* 9.6.2020
   * `malli.core/name` & `malli.core/-name` renamed to `malli.core/type` & `malli.core/-type`
   * `malli.generator/-generator` is renamed to `malli.generator/-schema-generator`

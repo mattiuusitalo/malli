@@ -91,8 +91,8 @@
    [[:enum 'kikka 'kukka] {:type "string" :enum ['kikka 'kukka]}]
    [[:maybe string?] {:oneOf [{:type "string"} {:type "null"}]}]
    [[:tuple string? string?] {:type "array"
-                              :items [{:type "string"} {:type "string"}]
-                              :additionalItems false}]
+                              :prefixItems [{:type "string"} {:type "string"}]
+                              :items false}]
    [[:re "^[a-z]+\\.[a-z]+$"] {:type "string", :pattern "^[a-z]+\\.[a-z]+$"}]
    [[:fn {:gen/elements [1]} int?] {}]
    [:any {}]
@@ -100,6 +100,7 @@
    [:nil {:type "null"}]
    [[:string {:min 1, :max 4}] {:type "string", :minLength 1, :maxLength 4}]
    [[:int {:min 1, :max 4}] {:type "integer", :minimum 1, :maximum 4}]
+   [[:float {:min 1, :max 4}] {:type "number", :minimum 1, :maximum 4}]
    [[:double {:min 1, :max 4}] {:type "number", :minimum 1, :maximum 4}]
    [:keyword {:type "string"}]
    [:qualified-keyword {:type "string"}]
@@ -108,6 +109,7 @@
    [:uuid {:type "string", :format "uuid"}]
 
    [[:=> :cat int?] {} :fn]
+   [[:-> :cat int?] {} :fn]
    [[:function [:=> :cat int?]] {} :fn]
    [ifn? {}]
 
@@ -287,11 +289,42 @@
                                                          [:zip int?]
                                                          [:country "Country"]]]]]]}}
              "Order"]))))
-
   (testing "circular definitions are not created"
     (is (= {:$ref "#/definitions/Foo", :definitions {"Foo" {:type "integer"}}}
            (json-schema/transform
-             (mu/closed-schema [:schema {:registry {"Foo" :int}} "Foo"]))))))
+            [:schema {:registry {"Foo" :int}} "Foo"]))))
+  (testing "circular definitions are not created for closed schemas"
+    (is (= {:$ref "#/definitions/Foo", :definitions {"Foo" {:type "integer"}}}
+           (json-schema/transform
+            (mu/closed-schema [:schema {:registry {"Foo" :int}} "Foo"])))))
+  (testing "definition path can be changed"
+    (is (= {:type "object"
+            :properties {:foo {:$ref "#/foo/bar/Foo"}}
+            :required [:foo]
+            :definitions {"Foo" {:type "integer"}}}
+           (json-schema/transform
+            [:schema {:registry {"Foo" :int}} [:map [:foo "Foo"]]]
+            {:malli.json-schema/definitions-path "#/foo/bar/"})))))
+
+(deftest mutual-recursion-test
+  (is (= {:$ref "#/definitions/Foo"
+          :definitions {"Bar" {:$ref "#/definitions/Foo"}
+                        "Foo" {:items {:$ref "#/definitions/Bar"} :type "array"}}}
+         (json-schema/transform [:schema {:registry {"Foo" [:vector [:schema "Bar"]] ;; NB! :schema instead of :ref
+                                                     "Bar" [:ref "Foo"]}}
+                                 "Foo"])))
+  (is (= {:$ref "#/definitions/Foo"
+          :definitions {"Bar" {:$ref "#/definitions/Foo"}
+                        "Foo" {:items {:$ref "#/definitions/Bar"} :type "array"}}}
+         (json-schema/transform [:schema {:registry {"Foo" [:vector [:ref "Bar"]]
+                                                     "Bar" [:ref "Foo"]}}
+                                 "Foo"])))
+  (is (= {:$ref "#/definitions/Bar",
+          :definitions {"Bar" {:$ref "#/definitions/Foo"},
+                        "Foo" {:items {:$ref "#/definitions/Bar"}, :type "array"}}}
+         (json-schema/transform [:schema {:registry {"Foo" [:vector [:ref "Bar"]]
+                                                     "Bar" [:ref "Foo"]}}
+                                 "Bar"]))))
 
 (deftest function-schema-test
   (is (= {} (json-schema/transform [:=> [:cat int? int?] int?]))))
@@ -302,3 +335,41 @@
           :required [:name]
           :additionalProperties false}
          (json-schema/transform [:map {:closed true} [:name :string]]))))
+
+(def UserId :string)
+
+(def User
+  [:map {:registry {:a.b/c :double
+                    :a/b.c :double
+                    ::location [:tuple :a.b/c :a/b.c]
+                    `description :string}}
+   [:id #'UserId]
+   ::location
+   `description
+   [:friends {:optional true} [:set [:ref #'User]]]])
+
+(deftest ref-test
+  (is (= {:type "object"
+          :properties {:id {:$ref "#/definitions/malli.json-schema-test.UserId"},
+                       ::location {:$ref "#/definitions/malli.json-schema-test.location"},
+                       `description {:$ref "#/definitions/malli.json-schema-test.description"},
+                       :friends {:type "array", :items {:$ref "#/definitions/malli.json-schema-test.User"}, :uniqueItems true}},
+          :required [:id :malli.json-schema-test/location `description],
+          :definitions {"a..b.c" {:type "number"}
+                        "a.b.c" {:type "number"}
+                        "malli.json-schema-test.UserId" {:type "string"},
+                        "malli.json-schema-test.location" {:type "array",
+                                                           :prefixItems [{:$ref "#/definitions/a.b.c"}
+                                                                         {:$ref "#/definitions/a..b.c"}],
+                                                           :items false},
+                        "malli.json-schema-test.description" {:type "string"},
+                        "malli.json-schema-test.User" {:type "object",
+                                                       :properties {:id {:$ref "#/definitions/malli.json-schema-test.UserId"},
+                                                                    ::location {:$ref "#/definitions/malli.json-schema-test.location"},
+                                                                    `description {:$ref "#/definitions/malli.json-schema-test.description"},
+                                                                    :friends {:type "array",
+                                                                              :items {:$ref "#/definitions/malli.json-schema-test.User"},
+                                                                              :uniqueItems true}},
+                                                       :required [:id ::location `description]}}}
+
+         (json-schema/transform User))))

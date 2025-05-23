@@ -1,11 +1,14 @@
 (ns malli.transform
   #?(:cljs (:refer-clojure :exclude [Inst Keyword UUID]))
   (:require [malli.core :as m]
+            [malli.util :as mu]
+            [clojure.math :as math]
             #?(:cljs [goog.date.UtcDateTime])
             #?(:cljs [goog.date.Date]))
   #?(:clj (:import (java.time Instant ZoneId)
                    (java.time.format DateTimeFormatter DateTimeFormatterBuilder)
                    (java.time.temporal ChronoField)
+                   (java.net URI)
                    (java.util Date UUID))))
 
 (def ^:dynamic *max-compile-depth* 10)
@@ -66,15 +69,38 @@
          (catch #?(:clj Exception, :cljs js/Error) _ x))
     x))
 
+(defn parse-float [s]
+  #?(:clj
+     (if (string? s)
+       (try
+         (Float/parseFloat s)
+         (catch NumberFormatException _ nil))
+       (throw (IllegalArgumentException.
+               (str "Expected string, got " (if (nil? s) "nil" (-> s class .getName))))))
+     :cljs
+     (parse-double s)))
+
+(defn -string->float [x]
+  (if (string? x)
+    (or (parse-float x) x)
+    x))
+
 (defn -string->double [x]
   (if (string? x)
-    (try #?(:clj  (Double/parseDouble x)
-            :cljs (let [x' (js/parseFloat x)] (if (js/isNaN x') x x')))
-         (catch #?(:clj Exception, :cljs js/Error) _ x))
+    (or (parse-double x) x)
     x))
+
+(defn -number->float [x]
+  (if (number? x) (float x) x))
 
 (defn -number->double [x]
   (if (number? x) (double x) x))
+
+(defn -number->long [x]
+  (cond
+    (integer? x) x
+    (and (number? x) (== x (math/round x))) (math/round x)
+    :else x))
 
 (defn -string->keyword [x]
   (if (string? x) (keyword x) x))
@@ -87,7 +113,7 @@
     x))
 
 (def ^:private uuid-re
-  #"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+  #"(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 (defn -string->uuid [x]
   (if (string? x)
@@ -96,6 +122,17 @@
          :cljs (uuid x))
       x)
     x))
+
+#?(:clj
+   (defn -string->uri [x]
+     (if (string? x)
+       (try
+         (URI. x)
+         ;; TODO replace with URISyntaxException once we are on
+         ;; babashka >= v1.3.186.
+         (catch Exception _
+           x))
+       x)))
 
 #?(:clj
    (def ^DateTimeFormatter +string->date-format+
@@ -155,8 +192,13 @@
          (catch #?(:clj Exception, :cljs js/Error) _ x))
     x))
 
-(defn -transform-map-keys [f]
-  #(cond->> % (map? %) (into {} (map (fn [[k v]] [(f k) v])))))
+(defn -transform-map-keys
+  ([f]
+   (let [xform (map (fn [[k v]] [(f k) v]))]
+     #(cond->> % (map? %) (into (empty %) xform))))
+  ([ks f]
+   (let [xform (map (fn [[k v]] [(cond-> k (contains? ks k) f) v]))]
+     #(cond->> % (map? %) (into (empty %) xform)))))
 
 (defn -transform-if-valid [f schema]
   (let [validator (m/-validator schema)]
@@ -191,17 +233,25 @@
         (set? x) (seq x)
         :else x))
 
-(defn -infer-child-decoder-compiler [schema _]
-  (-> schema (m/children) (m/-infer) {:keyword -string->keyword
-                                      :symbol -string->symbol
-                                      :int -string->long
-                                      :double -string->double}))
+(defn -infer-child-compiler
+  [x-coders]
+  (fn [schema _]
+    (some-> schema
+      (m/children)
+      (m/-infer)
+      x-coders)))
+
+(defn -add-child-compilers
+  [x-coders]
+  (assoc x-coders
+    :enum {:compile (-infer-child-compiler x-coders)}
+    := {:compile (-infer-child-compiler x-coders)}))
 
 ;;
 ;; decoders
 ;;
 
-(defn -json-decoders []
+(defn -base-json-decoders []
   {'ident? -string->keyword
    'simple-ident? -string->keyword
    'qualified-ident? -string->keyword
@@ -215,22 +265,35 @@
    'qualified-symbol? -string->symbol
 
    'uuid? -string->uuid
+   'float? -number->float
    'double? -number->double
    'inst? -string->date
+   'integer? -number->long
+   'int? -number->long
+   'pos-int? -number->long
+   'neg-int? -number->long
+   'nat-int? -number->long
+   'zero? -number->long
 
-   :enum {:compile -infer-child-decoder-compiler}
-   := {:compile -infer-child-decoder-compiler}
+   #?@(:clj ['uri? -string->uri])
 
+   :float -number->float
    :double -number->double
+   :int -number->long
    :keyword -string->keyword
    :symbol -string->symbol
    :qualified-keyword -string->keyword
    :qualified-symbol -string->symbol
    :uuid -string->uuid
+   ;#?@(:clj [:uri -string->uri])
 
    :set -sequential->set})
 
-(defn -json-encoders []
+(defn -json-decoders []
+  (-add-child-compilers
+    (-base-json-decoders)))
+
+(defn -base-json-encoders []
   {'keyword? m/-keyword->string
    'simple-keyword? m/-keyword->string
    'qualified-keyword? m/-keyword->string
@@ -240,73 +303,82 @@
    'qualified-symbol? -any->string
 
    'uuid? -any->string
+   #?@(:clj ['uri? -any->string])
 
    :keyword m/-keyword->string
    :symbol -any->string
    :qualified-keyword m/-keyword->string
    :qualified-symbol -any->string
    :uuid -any->string
-   ;:uri any->string
+   ;#?@(:clj [:uri -any->string])
    ;:bigdec any->string
 
    'inst? -date->string
    #?@(:clj ['ratio? -number->double])})
 
+(defn -json-encoders []
+  (-add-child-compilers
+    (-base-json-encoders)))
+
 (defn -string-decoders []
-  (merge
-   (-json-decoders)
-   {'integer? -string->long
-    'int? -string->long
-    'pos-int? -string->long
-    'neg-int? -string->long
-    'nat-int? -string->long
-    'zero? -string->long
+  (-add-child-compilers
+    (merge
+      (-base-json-decoders)
+      {'integer? -string->long
+       'int? -string->long
+       'pos-int? -string->long
+       'neg-int? -string->long
+       'nat-int? -string->long
+       'zero? -string->long
 
-    :int -string->long
-    :double -string->double
-    :boolean -string->boolean
+       :int -string->long
+       :float -string->float
+       :double -string->double
+       :boolean -string->boolean
 
-    :> -string->long
-    :>= -string->long
-    :< -string->long
-    :<= -string->long
-    :not= -string->long
+       :> -string->long
+       :>= -string->long
+       :< -string->long
+       :<= -string->long
+       :not= -string->long
 
-    'number? -string->double
-    'float? -string->double
-    'double? -string->double
-    #?@(:clj ['rational? -string->double])
-    #?@(:clj ['decimal? -string->decimal])
+       'number? -string->double
+       'float? -string->float
+       'double? -string->double
+       #?@(:clj ['rational? -string->double])
+       #?@(:clj ['decimal? -string->decimal])
 
-    'boolean? -string->boolean
-    'false? -string->boolean
-    'true? -string->boolean
+       'boolean? -string->boolean
+       'false? -string->boolean
+       'true? -string->boolean
 
-    :map-of (-transform-map-keys m/-keyword->string)
-    :vector -sequential->vector}))
+       :map-of (-transform-map-keys m/-keyword->string)
+       :vector -sequential->vector})))
 
 (defn -string-encoders []
-  (merge
-   (-json-encoders)
-   {'integer? -any->string
-    'int? -any->string
-    'pos-int? -any->string
-    'neg-int? -any->string
-    'nat-int? -any->string
-    'zero? -any->string
+  (-add-child-compilers
+    (merge
+      (-base-json-encoders)
+      {'integer? -any->string
+       'int? -any->string
+       'pos-int? -any->string
+       'neg-int? -any->string
+       'nat-int? -any->string
+       'zero? -any->string
 
-    :int -any->string
-    :double -any->string
-    ;:boolean -any->string
+       :int -any->string
+       :float -any->string
+       :double -any->string
+       ;:boolean -any->string
 
-    :> -any->string
-    :>= -any->string
-    :< -any->string
-    :<= -any->string
-    := -any->string
-    :not= -any->string
+       :> -any->string
+       :>= -any->string
+       :< -any->string
+       :<= -any->string
+       :not= -any->string
 
-    'double -any->string}))
+       'float -any->string
+       'double -any->string})))
 
 ;;
 ;; transformers
@@ -342,7 +414,9 @@
 
 (defn json-transformer
   ([] (json-transformer nil))
-  ([{::keys [json-vectors map-of-key-decoders] :or {map-of-key-decoders (-string-decoders)}}]
+  ([{::keys [json-vectors
+             keywordize-map-keys
+             map-of-key-decoders] :or {map-of-key-decoders (-string-decoders)}}]
    (transformer
     {:name :json
      :decoders (-> (-json-decoders)
@@ -354,6 +428,13 @@
                                                             (-transform-if-valid key-schema)
                                                             (-transform-map-keys))
                                                     (-transform-map-keys m/-keyword->string))))})
+                   (cond-> keywordize-map-keys
+                     (assoc :map {:compile (fn [schema _]
+                                             (let [keyword-keys (->> (mu/keys schema)
+                                                                     (filter keyword?)
+                                                                     (map name)
+                                                                     set)]
+                                               (-transform-map-keys keyword-keys -string->keyword)))}))
                    (cond-> json-vectors (assoc :vector -sequential->vector)))
      :encoders (-json-encoders)})))
 
@@ -375,16 +456,18 @@
                                                    (if (and (map? x) (not default-schema))
                                                      (reduce-kv (fn [acc k _] (if-not (ks k) (dissoc acc k) acc)) x x)
                                                      x))))))}
-         strip-map-of {:compile (fn [schema options]
-                                  (let [entry-schema (m/into-schema :tuple nil (m/children schema) options)
-                                        valid? (m/validator entry-schema options)]
-                                    {:leave (fn [x] (reduce (fn [acc entry]
-                                                              (if (valid? entry)
-                                                                (apply assoc acc entry)
-                                                                acc)) (empty x) x))}))}]
+         strip-map-of (fn [stage]
+                        {:compile (fn [schema options]
+                                    (let [entry-schema (m/into-schema :tuple nil (m/children schema) options)
+                                          valid? (m/validator entry-schema options)]
+                                      {stage (fn [x]
+                                               (reduce (fn [acc entry]
+                                                         (if (valid? entry)
+                                                           (apply assoc acc entry)
+                                                           acc)) (empty x) x))}))})]
      (transformer
-      {:decoders {:map strip-map, :map-of strip-map-of}
-       :encoders {:map strip-map, :map-of strip-map-of}}))))
+      {:decoders {:map strip-map, :map-of (strip-map-of :leave)}
+       :encoders {:map strip-map, :map-of (strip-map-of :enter)}}))))
 
 (defn key-transformer [{:keys [decode encode types] :or {types #{:map}}}]
   (let [transform (fn [f stage] (when f {stage (-transform-map-keys f)}))]
@@ -396,21 +479,24 @@
 (defn default-value-transformer
   ([] (default-value-transformer nil))
   ([{:keys [key default-fn defaults ::add-optional-keys] :or {key :default, default-fn (fn [_ x] x)}}]
-   (let [get-default (fn [schema]
-                       (if-some [e (some-> schema m/properties (find key))]
-                         (constantly (val e))
-                         (some->> schema m/type (get defaults) (#(constantly (% schema))))))
+   (let [get-default (fn [schema more-props]
+                       (or (some-> schema m/properties :default/fn m/eval)
+                           (some-> more-props :default/fn m/eval)
+                           (if-some [e (or (some-> schema m/properties (find key))
+                                           (some-> more-props (find key)))]
+                             (constantly (val e))
+                             (some->> schema m/type (get defaults) (#(constantly (% schema)))))))
          set-default {:compile (fn [schema _]
-                                 (when-some [f (get-default schema)]
+                                 (when-some [f (get-default schema nil)]
                                    (fn [x] (if (nil? x) (default-fn schema (f)) x))))}
          add-defaults {:compile (fn [schema _]
                                   (let [defaults (into {}
                                                        (keep (fn [[k {:keys [optional] :as p} v]]
                                                                (when (or (not optional) add-optional-keys)
-                                                                 (let [e (find p key)]
-                                                                   (when-some [f (if e (constantly (val e))
-                                                                                       (get-default v))]
-                                                                     [k (fn [] (default-fn schema (f)))])))))
+                                                                 (when-some [f (or (get-default v p)
+                                                                                   (when (m/-ref-schema? v)
+                                                                                     (get-default (m/-deref v) p)))]
+                                                                   [k (fn [] (default-fn schema (f)))]))))
                                                        (m/children schema))]
                                     (when (seq defaults)
                                       (fn [x]

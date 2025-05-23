@@ -8,13 +8,15 @@
     (is (= "vector of integer" (med/describe [:vector :int]))))
 
   (testing "string"
-    (is (= "string with length <= 5" (med/describe [:string {:min 5}])))
-    (is (= "string with length >= 5" (med/describe [:string {:max 5}])))
+    (is (= "string with length >= 5" (med/describe [:string {:min 5}])))
+    (is (= "string with length <= 5" (med/describe [:string {:max 5}])))
     (is (= "string with length between 3 and 5 inclusive" (med/describe [:string {:min 3 :max 5}]))))
 
   (testing "function"
     (is (= "function that takes input: [integer] and returns integer"
-           (med/describe [:=> [:cat int?] int?]))))
+           (med/describe [:=> [:cat int?] int?])))
+    (is (= "function that takes input: [integer] and returns integer"
+           (med/describe [:-> int? int?]))))
 
   (testing "map"
     (is (= "map" (med/describe map?)))

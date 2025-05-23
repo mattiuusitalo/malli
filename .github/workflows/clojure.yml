@@ -12,22 +12,29 @@ jobs:
     strategy:
       matrix:
         # Supported Java versions: LTS releases and latest
-        # TODO: Replace 19=>20 when available
-        jdk: [8, 11, 17, 19]
-        clojure: [10, 11]
+        jdk: [8, 11, 17, 21]
+        clojure: [11, 12]
 
     name: Clojure ${{ matrix.clojure }} (Java ${{ matrix.jdk }})
 
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Java ${{ matrix.jdk }}
-        uses: actions/setup-java@v3.10.0
+        uses: actions/setup-java@v4
         with:
           distribution: zulu
           java-version: ${{ matrix.jdk }}
-          cache: maven
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-test-deps-${{ hashFiles('**/deps.edn') }}-${{ matrix.clojure }}-${{ matrix.jdk }}
+          restore-keys: |
+            ${{ runner.os }}-test-deps-${{ hashFiles('**/deps.edn') }}-${{ matrix.clojure }}-
+            ${{ runner.os }}-test-deps-
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@master
         with:
@@ -37,47 +44,94 @@ jobs:
 
   build-cljs:
     name: ClojureScript
+    strategy:
+      matrix:
+        mode: [none, advanced, cherry-none, cherry-advanced]
 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Java 11
-        uses: actions/setup-java@v3.10.0
+        uses: actions/setup-java@v4
         with:
           distribution: zulu
           java-version: 11
-          cache: maven
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-test-deps-${{ hashFiles('**/deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-test-deps-
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@master
         with:
           cli: latest
       - name: Setup Node.js
-        uses: actions/setup-node@v3.6.0
+        uses: actions/setup-node@v4.4.0
         with:
           node-version: 16
       - name: Install dependencies
         run: npm ci
-      - name: Run tests
-        run: bin/node
+      - name: Run tests on ${{ matrix.mode }}
+        run: bin/node ${{ matrix.mode }}
 
   build-bb:
     name: Babashka
 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Java 11
-        uses: actions/setup-java@v3.10.0
+        uses: actions/setup-java@v4
         with:
           distribution: zulu
           java-version: 11
-          cache: maven
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.deps.clj
+            ~/.gitlibs
+          key: ${{ runner.os }}-test-deps-${{ hashFiles('**/deps.edn') }}-${{ hashFiles('**/bb.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-test-deps-${{ hashFiles('**/deps.edn') }}-
+            ${{ runner.os }}-test-deps-
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@master
         with:
           cli: latest
-          # bb: latest
-      - name: Download bb master
-        run: bash <(curl -s https://raw.githubusercontent.com/babashka/babashka/master/install) --version 0.8.157-SNAPSHOT
+          bb: latest
       - name: Run tests
         run: bb test-bb
+
+  doc-tests:
+    # Builds tests from Documentation with test-doc-blocks and tests that
+    # the examples are still valid.
+    name: Doc Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 11
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.deps.clj
+            ~/.gitlibs
+          key: ${{ runner.os }}-test-deps-${{ hashFiles('**/deps.edn') }}-${{ hashFiles('**/bb.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-test-deps-${{ hashFiles('**/deps.edn') }}-
+            ${{ runner.os }}-test-deps-
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: latest
+          bb: latest
+      - name: Run doc tests
+        run: bb test-docs

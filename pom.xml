@@ -3,8 +3,9 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>metosin</groupId>
   <artifactId>malli</artifactId>
-  <version>0.10.4</version>
+  <version>0.18.0</version>
   <name>malli</name>
+  <description>High-performance data-driven data specification library for Clojure/Script.</description>
   <licenses>
     <license>
       <name>Eclipse Public License 2.0</name>
@@ -15,13 +16,18 @@
     <url>https://github.com/metosin/malli</url>
     <connection>scm:git:git://github.com/metosin/malli.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/metosin/malli.git</developerConnection>
-    <tag>0.10.4</tag>
+    <tag>0.18.0</tag>
   </scm>
   <dependencies>
     <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>clojure</artifactId>
+      <version>1.12.0</version>
+    </dependency>
+    <dependency>
       <groupId>fipp</groupId>
       <artifactId>fipp</artifactId>
-      <version>0.6.26</version>
+      <version>0.6.27</version>
     </dependency>
     <dependency>
       <groupId>mvxcvi</groupId>
@@ -36,7 +42,7 @@
     <dependency>
       <groupId>borkdude</groupId>
       <artifactId>edamame</artifactId>
-      <version>1.3.20</version>
+      <version>1.4.30</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

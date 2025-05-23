@@ -1,5 +1,6 @@
 (ns malli.instrument-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
             [malli.core :as m]
             [malli.instrument :as mi]))
 
@@ -8,8 +9,14 @@
 
 (defn ->plus [] plus)
 
-(defn unstrument! [] (with-out-str (mi/unstrument! {:filters [(mi/-filter-ns 'malli.instrument-test)]})))
-(defn instrument! [] (with-out-str (mi/instrument! {:filters [(mi/-filter-ns 'malli.instrument-test)]})))
+(defn primitive-DO [^double val] val)
+(m/=> primitive-DO [:=> [:cat :double] :double])
+
+(defn opts [] {:filters [(fn [& args]
+                           (and (apply (mi/-filter-ns 'malli.instrument-test) args)
+                                (apply (mi/-filter-var #(not= #'primitive-DO %)) args)))]})
+(defn unstrument! [] (with-out-str (mi/unstrument! (opts))))
+(defn instrument! [] (with-out-str (mi/instrument! (opts))))
 
 (deftest instrument!-test
 
@@ -30,6 +37,32 @@
          Exception
          #":malli.core/invalid-output"
          ((->plus) 6)))))
+
+(defmacro if-bb [then & [else]]
+  (if (System/getProperty "babashka.version")
+    then
+    else))
+
+(if-bb
+  (deftest primitive-functions-can-be-instrumented
+    (is (= 42 (primitive-DO 42)))
+    (is (= "42" (primitive-DO "42")))
+    (is (mi/instrument! {:filters [(mi/-filter-var #(= #'primitive-DO %))]}))
+    (is (thrown-with-msg?
+          Exception
+          #":malli.core/invalid-input"
+          (primitive-DO "42")))
+    (is (mi/unstrument! {:filters [(mi/-filter-var #(= #'primitive-DO %))]}))
+    (is (= 42 (primitive-DO 42)))
+    (is (= "42" (primitive-DO "42"))))
+  (deftest primitive-functions-cannot-be-instrumented
+    (is (= 42.0 (primitive-DO 42)))
+    (is (thrown? ClassCastException (primitive-DO "42")))
+    (is (str/includes?
+          (with-out-str (mi/instrument! {:filters [(mi/-filter-var #(= #'primitive-DO %))]}))
+          "WARNING: Not instrumenting primitive fn #'malli.instrument-test/primitive-DO"))
+    (is (= 42.0 (primitive-DO 42)))
+    (is (thrown? ClassCastException (primitive-DO "42")))))
 
 (defn minus
   "kukka"
@@ -90,21 +123,39 @@
          (mi/-schema #'f2)))
   (is (= nil (mi/-schema #'f3))))
 
+(deftest check-test
+  (testing "all registered function schemas in this namespace"
+    (let [results (mi/check {:filters [(mi/-filter-ns 'malli.instrument-test)]})]
+      (is (map? results)))))
+
 (deftest instrument-external-test
 
   (testing "Without instrumentation"
     (is (thrown?
-          java.lang.IllegalArgumentException
-          #_:clj-kondo/ignore
-          (select-keys {:a 1} :a))))
+         java.lang.IllegalArgumentException
+         #_:clj-kondo/ignore
+         (select-keys {:a 1} :a))))
 
   (testing "With instrumentation"
     (m/=> clojure.core/select-keys [:=> [:cat map? sequential?] map?])
     (with-out-str (mi/instrument! {:filters [(mi/-filter-ns 'clojure.core)]}))
     (is (thrown-with-msg?
-          Exception
-          #":malli.core/invalid-input"
-          #_:clj-kondo/ignore
-          (select-keys {:a 1} :a)))
+         Exception
+         #":malli.core/invalid-input"
+         #_:clj-kondo/ignore
+         (select-keys {:a 1} :a)))
     (is (= {:a 1} (select-keys {:a 1} [:a])))
     (with-out-str (mi/unstrument! {:filters [(mi/-filter-ns 'clojure.core)]}))))
+
+(defn reinstrumented [] 1)
+
+(deftest reinstrument-test
+  (m/=> reinstrumented [:-> [:= 2]])
+  (instrument!)
+  (is (thrown-with-msg?
+        Exception
+        #":malli\.core/invalid-output"
+        (reinstrumented)))
+  (m/=> reinstrumented [:-> [:= 1]])
+  (instrument!)
+  (is (= 1 (reinstrumented))))

@@ -18,7 +18,7 @@
   ;; Because the current MetaFn implementation can cause quirky errors in CLJS
   [f m]
   (let [new-f (goog/bind f #js{})]
-    (goog/mixin new-f f)
+    (js/Object.assign new-f f)
     (specify! new-f IMeta #_:clj-kondo/ignore (-meta [_] m))
     new-f))
 
@@ -97,8 +97,8 @@
   ([{:keys [mode data filters gen report skip-instrumented?] :or {skip-instrumented? false
                                                                   mode :instrument, data (m/function-schemas :cljs)} :as options}]
    (doseq [[n d] data, [s d] d]
-     (when (or (not filters) (some #(% n s d) filters))
-       (when-let [v (-find-var n s)]
+     (when-let [v (-find-var n s)]
+       (when (or (not filters) (some #(% n s d) filters))
          (case mode
            :instrument (let [original-fn (or (-original v) v)
                              dgen (as-> (select-keys options [:scope :report :gen]) $
@@ -107,11 +107,8 @@
                                         (cond (and gen (true? (:gen d))) (assoc $ :gen gen)
                                               (true? (:gen d)) (dissoc $ :gen)
                                               :else $))]
-                         (if (and skip-instrumented? (-instrumented? v))
-                           (println "skipping" (symbol n s) "already instrumented")
-                           (when original-fn
-                             (-replace-fn original-fn n s dgen)
-                             (println "..instrumented" (symbol n s)))))
+                         (if (and original-fn (not (and skip-instrumented? (-instrumented? v))))
+                           (-replace-fn original-fn n s dgen)))
 
            :unstrument (when (-instrumented? v)
                          (let [original-fn (or (-original v) v)]
@@ -130,8 +127,7 @@
                                (let [orig (g/get arity-fn "malli$instrument$original")]
                                  (g/set original-fn accessor orig)))
 
-                             :else (g/set (-get-ns n) (munge (name s)) original-fn)))
-                         (println "..unstrumented" (symbol n s)))
+                             :else (g/set (-get-ns n) (munge (name s)) original-fn))))
            (mode v d)))))))
 
 ;;

@@ -45,33 +45,56 @@
                :as map}]
     :schema [:cat
              :any
-             [:altn
-              [:map [:map
-                     [:b {:optional true} :any]
-                     ["c" {:optional true} :any]
-                     ['d {:optional true} :any]
-                     ['demo/e {:optional true} :any]
-                     [:demo/f {:optional true}]
-                     [:demo/g {:optional true}]
-                     [123 {:optional true} :any]]]
+             [:orn
+              ;; Unfortunately, the output order is different between clj and cljs, and we use strict equality in the test
+              [:map #?(:clj
+                       [:map
+                        [:b {:optional true} :any]
+                        ["c" {:optional true} :any]
+                        ['d {:optional true} :any]
+                        ['demo/e {:optional true} :any]
+                        [:demo/f {:optional true}]
+                        [123 {:optional true} :any]
+                        [:demo/g {:optional true}]]
+                       :cljs
+                       [:map
+                        [:b {:optional true} :any]
+                        ["c" {:optional true} :any]
+                        ['d {:optional true} :any]
+                        ['demo/e {:optional true} :any]
+                        [:demo/f {:optional true}]
+                        [:demo/g {:optional true}]
+                        [123 {:optional true} :any]])]
               [:args [:schema
-                      [:*
-                       [:alt
-                        [:cat [:= :b] :any]
-                        [:cat [:= "c"] :any]
-                        [:cat [:= 'd] :any]
-                        [:cat [:= 'demo/e] :any]
-                        [:cat [:= :demo/f] :demo/f]
-                        [:cat [:= :demo/g] :demo/g]
-                        [:cat [:= 123] :any]
-                        [:cat :any :any]]]]]]]
+                      #?(:clj
+                         [:*
+                          [:alt
+                           [:cat [:= :b] :any]
+                           [:cat [:= "c"] :any]
+                           [:cat [:= 'd] :any]
+                           [:cat [:= 'demo/e] :any]
+                           [:cat [:= :demo/f] :demo/f]
+                           [:cat [:= 123] :any]
+                           [:cat [:= :demo/g] :demo/g]
+                           [:cat [:not [:enum :b "c" 'd 'demo/e :demo/f 123 :demo/g]] :any]]]
+                         :cljs
+                         [:*
+                          [:alt
+                           [:cat [:= :b] :any]
+                           [:cat [:= "c"] :any]
+                           [:cat [:= 'd] :any]
+                           [:cat [:= 'demo/e] :any]
+                           [:cat [:= :demo/f] :demo/f]
+                           [:cat [:= :demo/g] :demo/g]
+                           [:cat [:= 123] :any]
+                           [:cat [:not [:enum :b "c" 'd 'demo/e :demo/f :demo/g 123]] :any]]])]]]]
     :errors '[[{::keysz [z]}]
               [{:kikka/keyz [z]}]]}
    {:name "map destructuring with required-keys"
     :bind '[{:keys [a :demo/b] :demo/keys [c]}]
     :options {::md/required-keys true}
     :schema [:cat
-             [:altn
+             [:orn
               [:map [:map
                      [:a :any]
                      :demo/b
@@ -80,13 +103,13 @@
                                    [:cat [:= :a] :any]
                                    [:cat [:= :demo/b] :demo/b]
                                    [:cat [:= :demo/c] :demo/c]
-                                   [:cat :any :any]]]]]]]}
+                                   [:cat [:not [:enum :a :demo/b :demo/c]] :any]]]]]]]}
    {:name "map destructuring with required-keys and closed-maps"
     :bind '[{:keys [a :demo/b] :demo/keys [c]}]
     :options {::md/required-keys true
               ::md/closed-maps true}
     :schema [:cat
-             [:altn
+             [:orn
               [:map [:map {:closed true}
                      [:a :any]
                      :demo/b
@@ -101,7 +124,7 @@
               ::md/closed-maps true
               ::md/references false}
     :schema [:cat
-             [:altn
+             [:orn
               [:map [:map {:closed true}
                      [:a :any]
                      [:demo/b :any]
@@ -130,7 +153,7 @@
     :options {::md/sequential-maps false} ;; no effect here
     :schema [:cat
              :any
-             [:altn
+             [:orn
               [:map [:map
                      [:b {:optional true} :any]
                      ["c" {:optional true} :any]
@@ -144,29 +167,53 @@
                        [:cat [:= 'd] :any]
                        [:cat [:= :demo/e] :demo/e]
                        [:cat [:= 'demo/f] :any]
-                       [:cat :any :any]]]]]]}
+                       [:cat [:not [:enum :b "c" 'd :demo/e 'demo/f]] :any]]]]]]}
    {:name "Nested Keyword argument"
     :bind '[[& {:keys [a b] :as opts}]
             & {:keys [a b] :as opts}]
     :schema [:cat
              [:maybe
               [:cat
-               [:altn
+               [:orn
                 [:map [:map
                        [:a {:optional true} :any]
                        [:b {:optional true} :any]]]
                 [:args [:* [:alt
                             [:cat [:= :a] :any]
                             [:cat [:= :b] :any]
-                            [:cat :any :any]]]]]]]
-             [:altn
+                            [:cat [:not [:enum :a :b]] :any]]]]]]]
+             [:orn
               [:map [:map
                      [:a {:optional true} :any]
                      [:b {:optional true} :any]]]
               [:args [:* [:alt
                           [:cat [:= :a] :any]
                           [:cat [:= :b] :any]
-                          [:cat :any :any]]]]]]}])
+                          [:cat [:not [:enum :a :b]] :any]]]]]]}
+   {:name "Nest right-to-left map syntax"
+    :bind '[{{inner :inner} :outer}]
+    :schema [:cat
+             [:orn
+              [:map [:map
+                     [:outer
+                      {:optional true}
+                      [:orn
+                       [:map [:map
+                              [:inner {:optional true} :any]]]
+                       [:args [:schema
+                               [:* [:alt
+                                    [:cat [:= :inner] :any]
+                                    [:cat [:not [:enum :inner]] :any]]]]]]]]]
+              [:args [:schema
+                      [:* [:alt
+                           [:cat
+                            [:= :outer]
+                            [:orn
+                             [:map [:map [:inner {:optional true} :any]]]
+                             [:args [:schema [:* [:alt
+                                                  [:cat [:= :inner] :any]
+                                                  [:cat [:not [:enum :inner]] :any]]]]]]]
+                           [:cat [:not [:enum :outer]] :any]]]]]]]}])
 
 (def schematized-expectations
   [{:name "empty"

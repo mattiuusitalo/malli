@@ -5,6 +5,7 @@
             [malli.core :as m]
             [malli.impl.util :as miu]
             [malli.registry :as mr]
+            [malli.transform :as mt]
             [malli.util :as mu]))
 
 #?(:clj (defn from-json [s]
@@ -208,6 +209,27 @@
       (is (nil? (m/explain (mu/closed-schema explicitly-open) {:a 2 :c {:d 1} :d "lol"})))
       (is (nil? (m/explain (mu/open-schema explicitly-open) {:a 2 :c {:d 1} :d "lol"}))))))
 
+;; regression test for #884
+(deftest closed-pointer-schema-regression-test
+  (let [schema (m/schema [:schema {:registry {"Foo" :int}} "Foo"])
+        closed (mu/closed-schema schema)
+        reopen (mu/open-schema closed)
+        closed2 (mu/closed-schema schema {:option "option"})
+        reopen2 (mu/open-schema closed2 {:option "option"})]
+    (is (= :int (-> schema m/deref m/deref m/form)))
+    ;; these used to be "Foo" instead of :int
+    (is (= :int (-> closed m/deref m/deref m/form)))
+    (is (= :int (-> reopen m/deref m/deref m/form)))
+    (is (= :int (-> closed2 m/deref m/deref m/form)))
+    (is (= :int (-> reopen2 m/deref m/deref m/form))))
+  (let [schema (m/schema [:schema {:registry {"Foo" :int}} [:ref "Foo"]])
+        closed (mu/closed-schema schema)
+        reopen (mu/open-schema closed)]
+    (is (= :int (-> schema m/deref m/deref m/form)))
+    ;; these used to be "Foo" instead of :int
+    (is (= :int (-> closed m/deref m/deref m/form)))
+    (is (= :int (-> reopen m/deref m/deref m/form)))))
+
 (deftest select-key-test
   (let [schema [:map {:title "map"}
                 [:a int?]
@@ -253,6 +275,8 @@
 ;;
 ;; LensSchemas
 ;;
+
+(def Var :string)
 
 (deftest basic-lens-schema-test
   (let [re #"kikka"
@@ -311,6 +335,8 @@
 
         [:ref {:registry {::a int?, ::b string?}} ::a] 0 ::a
         [:ref {:registry {::a int?, ::b string?}} ::a] 1 nil
+        [:ref #'Var] 0 #'Var
+        [:ref #'Var] 1 nil
 
         [:schema int?] 0 int?
         [:schema int?] 1 nil)
@@ -406,12 +432,23 @@
                   [:x 0 0 0 1 :y 9]
                   pos-int?)
                  pos-int?))
+  (is (mu/equals (mu/get-in
+                  [:multi {:dispatch :x}
+                   [true [:map [:x :boolean]]]
+                   [false [:map [:x :boolean] [:y :boolean]]]]
+                  [false])
+                 [:map [:x :boolean] [:y :boolean]]))
   (is (mu/equals [:maybe [:tuple int? boolean?]]
                  (mu/get-in (m/schema [:maybe [:tuple int? boolean?]]) [])))
   (is (form= (mu/get-in (m/schema [:ref {:registry {::a int?, ::b string?}} ::a]) [0]) ::a))
   (is (mu/equals (mu/get-in (m/schema [:ref {:registry {::a int?, ::b string?}} ::a]) [0 0]) int?))
   (is (form= (mu/get-in (m/schema [:schema {:registry {::a int?, ::b string?}} ::a]) [0]) ::a))
-  (is (mu/equals (mu/get-in (m/schema [:schema {:registry {::a int?, ::b string?}} ::a]) [0 0]) int?)))
+  (is (mu/equals (mu/get-in (m/schema [:schema {:registry {::a int?, ::b string?}} ::a]) [0 0]) int?))
+
+  (is (form= (mu/get-in (m/schema [:ref #'Var]) [0]) #'Var))
+  (is (form= (mu/get-in (m/schema [:ref #'Var]) [0 0]) :string))
+  (is (form= (mu/get-in (m/schema [:schema #'Var]) [0]) #'Var))
+  (is (form= (mu/get-in (m/schema [:schema #'Var]) [0 0]) :string)))
 
 (deftest dissoc-test
   (let [schema [:map {:title "map"}
@@ -481,7 +518,24 @@
       (is (true? (m/validate
                   (mu/update schema :b identity)
                   {:a 1
-                   :c "a string"}))))))
+                   :c "a string"}))))
+    (testing "Multi schema can update its individual dispatch schemas"
+      (is (mu/equals (-> (m/schema [:multi {:dispatch :type}
+                                    [:sized [:map
+                                             [:type keyword?]
+                                             [:size int?]]]
+                                    [:human [:map
+                                             [:type keyword?]
+                                             [:name string?]
+                                             [:address [:map [:country keyword?]]]]]])
+                         (mu/update :sized mu/select-keys [:size])
+                         (mu/update :human mu/select-keys [:name :address]))
+                     [:multi {:dispatch :type}
+                      [:sized [:map
+                               [:size int?]]]
+                      [:human [:map
+                               [:name string?]
+                               [:address [:map [:country keyword?]]]]]])))))
 
 (deftest assoc-in-test
   (is (mu/equals (mu/assoc-in (m/schema [:vector int?]) [0] string?) [:vector string?]))
@@ -495,7 +549,55 @@
   (is (mu/equals (mu/assoc-in (m/schema [:map]) [:a :b :c :d] int?)
                  [:map [:a [:map [:b [:map [:c [:map [:d int?]]]]]]]]))
   (is (mu/equals (mu/assoc-in (m/schema [:ref {:registry {::a int?, ::b string?}} ::a]) [0] ::b) [:ref {:registry {::a int?, ::b string?}} ::b]))
-  (is (mu/equals (mu/assoc-in (m/schema [:schema int?]) [0] string?) [:schema string?])))
+  (is (mu/equals (mu/assoc-in (m/schema [:schema int?]) [0] string?) [:schema string?]))
+
+  (testing "Multi schema can use assoc-in to introduce new dispatch schemas"
+    (is (mu/equals (-> (m/schema [:multi {:dispatch :type}
+                                  [:sized [:map
+                                           [:type keyword?]
+                                           [:size int?]]]
+                                  [:human [:map
+                                           [:type keyword?]
+                                           [:name string?]
+                                           [:address [:map [:country keyword?]]]]]])
+                       (mu/assoc-in [:robot] [:map
+                                              [:type keyword?]
+                                              [:serial-number string?]
+                                              [:charging-station [:map [:id string?]]]]))
+                   [:multi {:dispatch :type}
+                    [:sized [:map
+                             [:type keyword?]
+                             [:size int?]]]
+                    [:human [:map
+                             [:type keyword?]
+                             [:name string?]
+                             [:address [:map [:country keyword?]]]]]
+                    [:robot [:map
+                             [:type keyword?]
+                             [:serial-number string?]
+                             [:charging-station [:map [:id string?]]]]]])))
+  (testing "Multi schema can use assoc-in to extend existing schemas"
+    (is (mu/equals (-> (m/schema [:multi {:dispatch :type}
+                                  [:sized [:map
+                                           [:type keyword?]
+                                           [:size int?]]]
+                                  [:human [:map
+                                           [:type keyword?]
+                                           [:name string?]
+                                           [:address [:map [:country keyword?]]]]]])
+                       (mu/assoc-in [:sized :unit] string?)
+                       (mu/assoc-in [:human :address :state] string?))
+                   [:multi {:dispatch :type}
+                    [:sized [:map
+                             [:type keyword?]
+                             [:size int?]
+                             [:unit string?]]]
+                    [:human [:map
+                             [:type keyword?]
+                             [:name string?]
+                             [:address [:map
+                                        [:country keyword?]
+                                        [:state string?]]]]]]))))
 
 (deftest update-in-test
   (is (mu/equals (mu/update-in (m/schema [:vector int?]) [0] (constantly string?)) [:vector string?]))
@@ -751,161 +853,20 @@
                   [:a [:maybe [:sequential [:maybe [:map [:b [:and [:or int?]]]]]]]]]]
                 [:fn '(constantly true)]]
                (m/schema)
-               (mu/in->paths [:a 0 :b]))))))
+               (mu/in->paths [:a 0 :b])))))
+  (testing "orn, catn and altn don't contribute to :in"
+    (are [type value]
+      (= [:a]
+         (let [schema (m/schema [type [:a-branch [:map [:a :int]]]])]
+           (->> (m/explain schema value)
+                :errors
+                first
+                :path
+                (mu/path->in schema))))
 
-(deftest to-from-maps-test
-  (let [schema [:map {:registry {::size [:enum "S" "M" "L"]}}
-                [:id string?]
-                [:tags {:title "tag"} [:set keyword?]]
-                [:size ::size]
-                [:address
-                 [:vector
-                  [:map
-                   [:street string?]
-                   [:lonlat [:tuple double? double?]]]]]]]
-
-    (testing "to-map-syntax"
-      (is (= {:type :map,
-              :properties {:registry {::size [:enum "S" "M" "L"]}}
-              :children [[:id nil {:type 'string?}]
-                         [:tags {:title "tag"} {:type :set
-                                                :children [{:type 'keyword?}]}]
-                         [:size nil {:type ::m/schema
-                                     :children [::size]}]
-                         [:address nil {:type :vector,
-                                        :children [{:type :map,
-                                                    :children [[:street nil {:type 'string?}]
-                                                               [:lonlat nil {:type :tuple
-                                                                             :children [{:type 'double?}
-                                                                                        {:type 'double?}]}]]}]}]]}
-             (mu/to-map-syntax schema))))
-
-    (testing "from-map-syntax"
-      (is (true? (mu/equals schema (-> schema (mu/to-map-syntax) (mu/from-map-syntax))))))
-
-    (testing "walking entries"
-      (is (= {:type :map,
-              :properties {:registry {::size [:enum "S" "M" "L"]}}
-              :children [[:id nil {:type ::m/val
-                                   :children [{:type 'string?}]}]
-                         [:tags {:title "tag"} {:type ::m/val
-                                                :properties {:title "tag"}
-                                                :children [{:type :set
-                                                            :children [{:type 'keyword?}]}]}]
-                         [:size nil {:type ::m/val
-                                     :children [{:type ::m/schema
-                                                 :children [::size]}]}]
-                         [:address nil {:type ::m/val
-                                        :children [{:type :vector,
-                                                    :children [{:type :map,
-                                                                :children [[:street nil {:type ::m/val
-                                                                                         :children [{:type 'string?}]}]
-                                                                           [:lonlat nil {:type ::m/val
-                                                                                         :children [{:type :tuple
-                                                                                                     :children [{:type 'double?}
-                                                                                                                {:type 'double?}]}]}]]}]}]}]]}
-             (mu/to-map-syntax schema {::m/walk-entry-vals true}))))
-
-    (testing "walking references"
-      (let [schema [:ref {:registry {"Address" [:map
-                                                [:street :string]
-                                                [:country "Country"]
-                                                [:neighbor [:ref "Neighbor"]]]
-                                     "Country" [:map [:name "CountryName"]]
-                                     "CountryName" [:= "finland"]
-                                     "Neighbor" [:ref "Address"]}}
-                    "Address"]]
-
-        (testing "with defaults"
-          (is (= {:type :ref,
-                  :properties {:registry {"Address" [:map
-                                                     [:street :string]
-                                                     [:country "Country"]
-                                                     [:neighbor [:ref "Neighbor"]]],
-                                          "Country" [:map [:name "CountryName"]],
-                                          "CountryName" [:= "finland"],
-                                          "Neighbor" [:ref "Address"]}},
-                  :children ["Address"]}
-                 (mu/to-map-syntax schema))))
-
-        (testing "walking over all refs"
-          (is (= {:type :ref,
-                  :properties {:registry {"Address" [:map
-                                                     [:street :string]
-                                                     [:country "Country"]
-                                                     [:neighbor [:ref "Neighbor"]]],
-                                          "Country" [:map [:name "CountryName"]],
-                                          "CountryName" [:= "finland"],
-                                          "Neighbor" [:ref "Address"]}},
-                  :children [{:type :map,
-                              :children [[:street nil {:type :string}]
-                                         [:country nil {:type :malli.core/schema
-                                                        :children ["Country"]}]
-                                         [:neighbor nil {:type :ref
-                                                         :children [{:type :ref
-                                                                     :children ["Address"]}]}]]}]}
-                 (mu/to-map-syntax schema {::m/walk-refs true}))))
-
-        (testing "walking over some refs"
-          (is (= {:type :ref,
-                  :properties {:registry {"Address" [:map
-                                                     [:street :string]
-                                                     [:country "Country"]
-                                                     [:neighbor [:ref "Neighbor"]]],
-                                          "Country" [:map [:name "CountryName"]],
-                                          "CountryName" [:= "finland"],
-                                          "Neighbor" [:ref "Address"]}},
-                  :children [{:type :map,
-                              :children [[:street nil {:type :string}]
-                                         [:country nil {:type :malli.core/schema
-                                                        :children ["Country"]}]
-                                         [:neighbor nil {:type :ref
-                                                         :children ["Neighbor"]}]]}]}
-
-                 (mu/to-map-syntax schema {::m/walk-refs #{"Address"}}))))
-
-        (testing "walking over some refs and schemas"
-          (is (= {:type :ref,
-                  :properties {:registry {"Address" [:map
-                                                     [:street :string]
-                                                     [:country "Country"]
-                                                     [:neighbor [:ref "Neighbor"]]],
-                                          "Country" [:map [:name "CountryName"]],
-                                          "CountryName" [:= "finland"],
-                                          "Neighbor" [:ref "Address"]}},
-                  :children [{:type :map,
-                              :children [[:street nil {:type :string}]
-                                         [:country nil {:type :malli.core/schema,
-                                                        :children [{:type :map,
-                                                                    :children [[:name nil {:type :malli.core/schema, :children ["CountryName"]}]]}]}]
-                                         [:neighbor nil {:type :ref
-                                                         :children ["Neighbor"]}]]}]}
-
-                 (mu/to-map-syntax schema {::m/walk-refs #{"Address"}
-                                           ::m/walk-schema-refs #{"Country"}}))))
-
-        (testing "walking over all refs and schemas"
-          (is (= {:type :ref,
-                  :properties {:registry {"Address" [:map
-                                                     [:street :string]
-                                                     [:country "Country"]
-                                                     [:neighbor [:ref "Neighbor"]]],
-                                          "Country" [:map [:name "CountryName"]],
-                                          "CountryName" [:= "finland"],
-                                          "Neighbor" [:ref "Address"]}},
-                  :children [{:type :map,
-                              :children [[:street nil {:type :string}]
-                                         [:country nil {:type :malli.core/schema,
-                                                        :children [{:type :map,
-                                                                    :children [[:name nil {:type :malli.core/schema,
-                                                                                           :children [{:type :=
-                                                                                                       :children ["finland"]}]}]]}]}]
-                                         [:neighbor nil {:type :ref
-                                                         :children [{:type :ref
-                                                                     :children ["Address"]}]}]]}]}
-
-                 (mu/to-map-syntax schema {::m/walk-refs true
-                                           ::m/walk-schema-refs true}))))))))
+      :orn {:a "2"}
+      :catn [{:a "2"}]
+      :altn [{:a "2"}])))
 
 (deftest declarative-schemas
   (let [->> #(m/schema % {:registry (merge (mu/schemas) (m/default-schemas))})]
@@ -926,7 +887,7 @@
                 [:z {:optional true} :boolean]] (m/form (m/deref s))))
         (is (= true (m/validate s {:x "x", :y 1, :z true})))
         (is (= false (m/validate s {:x "x", :y "y"})))
-        (is (= {:x [:str "x"], :y 1, :z true} (m/parse s {:x "x", :y 1, :z true})))))
+        (is (= {:x (m/tag :str "x"), :y 1, :z true} (m/parse s {:x "x", :y 1, :z true})))))
 
     (testing "union"
       (let [s (->> [:union
@@ -939,8 +900,34 @@
         (is (= [:map [:x [:or [:orn [:str :string]] :int]]] (m/form (m/deref s))))
         (is (= true (m/validate s {:x "x"}) (m/validate s {:x 1})))
         (is (= false (m/validate s {:x true})))
-        (is (= {:x [:str "x"]} (m/parse s {:x "x"})))
+        (is (= {:x (m/tag :str "x")} (m/parse s {:x "x"})))
         (is (= {:x 1} (m/parse s {:x 1})))))
+
+    (testing "merge vs union"
+      (let [->s #(->> [%
+                       [:map [:x :string]]
+                       [:map [:x :int]]])
+            u (->s :union)
+            m (->s :merge)]
+        (is (m/validate u {:x 1}))
+        (is (m/validate u {:x "a"}))
+        (is (m/validate m {:x 1}))
+        (is (m/explain m {:x "a"}))))
+
+    (testing "union vs or"
+      (let [->s #(->> [%
+                       [:map [:x :string] [:y :int]]
+                       [:map [:x :int] [:y :string]]])
+            u (->s :union)
+            o (->s :or)]
+        (is (m/validate u {:x 1 :y 1}))
+        (is (m/validate u {:x 1 :y "a"}))
+        (is (m/validate u {:x "a" :y 1}))
+        (is (m/validate u {:x "a" :y "a"}))
+        (is (m/explain o {:x 1 :y 1}))
+        (is (m/validate o {:x 1 :y "a"}))
+        (is (m/validate o {:x "a" :y 1}))
+        (is (m/explain o {:x "a" :y "a"}))))
 
     (testing "select-keys"
       (let [s (->> [:select-keys
@@ -964,7 +951,7 @@
                (m/form (m/deref s))))
         (is (= true (m/validate s {:x "x", :z "z"})))
         (is (= false (m/validate s {:x "x", :y "y" :z "z"})))
-        (is (= {:x [:str "x"], :z "z"} (m/parse s {:x "x", :z "z"})))))))
+        (is (= {:x (m/tag :str "x"), :z "z"} (m/parse s {:x "x", :z "z"})))))))
 
 (def Int (m/schema int?))
 
@@ -1033,7 +1020,10 @@
          (is (true? ((miu/-some-pred tf) nil)))
          (is (true? ((miu/-some-pred ft) nil)))
          (is (false? ((miu/-some-pred ff) nil)))
-         (is (true? ((miu/-some-pred tt) nil)))))))
+         (is (true? ((miu/-some-pred tt) nil))))
+       (testing "empty inputs"
+         (is (true? ((miu/-every-pred []) :anything)))
+         (is (false? ((miu/-some-pred []) :anything)))))))
 
 (deftest explain-data-test
   (let [schema (m/schema [:map [:a [:vector [:maybe :string]]]])
@@ -1084,3 +1074,73 @@
                  (mu/assoc-in [:foo :bar] :int)
                  (mu/assoc-in [:foo :baz] :int)
                  (mu/closed-schema)))))
+
+(deftest update-entry-properties-test
+  (is (= [:map [:me {:a 1, :b 1} :int]]
+         (m/form
+          (mu/update-entry-properties
+           [:map [:me {:a 1} :int]]
+           :me
+           assoc :b 1))))
+  (is (= [:orn [:me {:a 1 :b 1} :int]]
+         (m/form
+          (mu/update-entry-properties
+           [:orn [:me {:a 1} :int]]
+           :me
+           assoc :b 1))))
+  (is (= [:vector [:map [:me {:a 1, :b 1} :int]]]
+         (m/form
+          (-> [:vector [:map [:me {:a 1} :int]]]
+              (mu/update 0 mu/update-entry-properties :me assoc :b 1)))))
+  (is (= [:vector [:orn [:me {:a 1, :b 1} :int]]]
+         (m/form
+          (-> [:vector [:orn [:me {:a 1} :int]]]
+              (mu/update 0 mu/update-entry-properties :me assoc :b 1)))))
+  (is (thrown-with-msg?
+       #?(:clj Exception, :cljs js/Error)
+       #":malli.util/no-entry"
+       (mu/update-entry-properties
+        :map
+        :invalid
+        identity))))
+
+(deftest transform-merge-test
+  (is (= {:name "kikka"
+          :description "kikka"}
+         (m/decode
+           [:map
+            [:name [:string {:default "kikka"}]]
+            [:description {:optional true} [:string {:default "kikka"}]] ]
+           {}
+           {:registry (merge (mu/schemas) (m/default-schemas))}
+           (mt/default-value-transformer {::mt/add-optional-keys true}))
+         (m/decode
+           [:merge
+            [:map [:name [:string {:default "kikka"}]] ]
+            [:map [:description {:optional true} [:string {:default "kikka"}]]]]
+           {}
+           {:registry (merge (mu/schemas) (m/default-schemas))}
+           (mt/default-value-transformer {::mt/add-optional-keys true})))))
+
+(deftest -reducing-test
+  (is (= :map (m/form (m/deref-all (m/schema [:merge [:merge :map]] {:registry (merge (mu/schemas) (m/default-schemas))})))))
+  (is (= :map (m/form (m/deref-all (m/schema [:union [:union :map]] {:registry (merge (mu/schemas) (m/default-schemas))})))))
+  (is (thrown-with-msg?
+        #?(:clj Exception, :cljs js/Error)
+        #":malli\.core/child-error"
+        (m/schema :merge {:registry (merge (mu/schemas) (m/default-schemas))})))
+  (is (thrown-with-msg?
+        #?(:clj Exception, :cljs js/Error)
+        #":malli\.core/child-error"
+        (m/schema :union {:registry (merge (mu/schemas) (m/default-schemas))}))))
+
+(deftest -applying-test
+  (let [times-initialized (atom 0)
+        map-proxy (m/-proxy-schema
+                    {:type ::map-proxy
+                     :max 0
+                     :fn (fn [_ _ _]
+                           (swap! times-initialized inc)
+                           [[] [] (m/schema :map)])})]
+    (m/deref-all (m/schema [:select-keys map-proxy []] {:registry (merge (mu/schemas) (m/default-schemas))}))
+    (is (= 1 @times-initialized))))
