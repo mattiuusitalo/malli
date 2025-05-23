@@ -152,15 +152,15 @@
 (defmethod type->malli "boolean" [p] boolean?)
 (defmethod type->malli "null" [p] :nil)
 (defmethod type->malli "object" [p] (object->malli p))
-(defmethod type->malli "array" [p] (let [items (:items p)]
-                                     (cond
-                                       (vector? items) (into [:tuple]
-                                                             (map schema->malli)
-                                                             items)
-                                       (:uniqueItems p) [:set (schema->malli items)]
-                                       (map? items) [:vector (schema->malli items)]
-                                       :else (throw (ex-info "Not Supported" {:json-schema p
-                                                                              :reason ::array-items})))))
+(defmethod type->malli "array" [{:keys [prefixItems items] :as p}]
+  (cond
+    (vector? prefixItems) (into [:tuple]
+                          (map schema->malli)
+                          prefixItems)
+    (:uniqueItems p) [:set (schema->malli items)]
+    (map? items) [:vector (schema->malli items)]
+    :else (throw (ex-info "Not Supported" {:json-schema p
+                                           :reason ::array-items}))))
 
 (defmethod type->malli "file" [p]
   [:map {:json-schema {:type "file"}} [:file :any]])

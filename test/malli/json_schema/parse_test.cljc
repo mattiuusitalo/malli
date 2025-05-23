@@ -59,8 +59,8 @@
    [[:or :string :nil] {:oneOf [{:type "string"} {:type "null"}]} :one-way true]
    [[:or :string :nil] {:anyOf [{:type "string"} {:type "null"}]}]
    [[:tuple :string :string] {:type "array"
-                              :items [{:type "string"} {:type "string"}]
-                              :additionalItems false}]
+                              :prefixItems [{:type "string"} {:type "string"}]
+                              :items false}]
    [[:re "^[a-z]+\\.[a-z]+$"] {:type "string", :pattern "^[a-z]+\\.[a-z]+$"}]
    [:any {}]
    [:any true :one-way true]
